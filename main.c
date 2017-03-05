@@ -29,6 +29,7 @@ char *read_word(FILE *fp) {
 }
 
 int main(int argc, char *const argv[], char *const env[]) {
+    int status = 0;
     Vector *vec = make_vector();
     while (1) {
         clear(vec);
@@ -45,14 +46,16 @@ int main(int argc, char *const argv[], char *const env[]) {
             printf("   [ Execute: %s ]\n", (char *) at(vec, 0));
             if (execvp(at(vec, 0), (char *const *) get_array(vec)) == -1) {
                 perror("execvp error");
-                exit(EXIT_FAILURE);
+                status = EXIT_FAILURE;
+                goto Exit;
             }
         } else if (pid > 0) {
             int status;
             do {
                 if (waitpid(pid, &status, WUNTRACED) == -1) {
                     perror("Waitpid");
-                    exit(EXIT_FAILURE);
+                    status = EXIT_FAILURE;
+                    goto Exit;
                 }
                 if (WIFEXITED(status)) {
                     printf("   [ Child exited, status = %d ]\n", WEXITSTATUS(status));
@@ -67,5 +70,5 @@ int main(int argc, char *const argv[], char *const env[]) {
     Exit:
     clear(vec);
     del_vec(vec);
-    return 0;
+    exit(status);
 }

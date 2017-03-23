@@ -1,24 +1,12 @@
-#ifndef SHELL_UTILITY_H
-#define SHELL_UTILITY_H
+#ifndef LS_H
+#define LS_H
 
-typedef struct {
-    void **body;
-    int len;
-    int capacity;
-} Vector;
+void traverse(const char *path, void (*callback)(struct dirent *dir), void (*dirProc)(const char *dir));
 
-void push_back(Vector *vec, void *ptr);
+char *parseMode(mode_t mode, char st[]);
 
-Vector *make_vector();
+char parseType(unsigned char type);
 
-void **get_array(Vector *vec);
+extern char *Month[];
 
-char *c_str(Vector *vec);
-
-void *at(Vector *vec, int i);
-
-void clear(Vector *vec);
-
-void del_vec(Vector *vec);
-
-#endif //SHELL_UTILITY_H
+#endif

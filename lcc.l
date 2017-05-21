@@ -23,7 +23,7 @@ WS  [ \t\v\n\f]
 
 %{
 #include <stdio.h>
-#include "y.tab.h"
+#include "lcc.h"
 
 extern void yyerror(const char *);  /* prints grammar violation message */
 
@@ -56,7 +56,7 @@ static int check_type(void);
 "goto"					{ return(GOTO); }
 "if"					{ return(IF); }
 "inline"				{ return(INLINE); }
-"int"					{ return(INT); }
+"int"					{ yylval.type = (INT); return(INT); }
 "long"					{ return(LONG); }
 "register"				{ return(REGISTER); }
 "restrict"				{ return(RESTRICT); }
@@ -85,7 +85,7 @@ static int check_type(void);
 "_Thread_local"                         { return THREAD_LOCAL; }
 "__func__"                              { return FUNC_NAME; }
 
-{L}{A}*					{ return check_type(); }
+{L}{A}*					{ yylval.name = make_string(yytext); return check_type(); }
 
 {HP}{H}+{IS}?				{ return I_CONSTANT; }
 {NZ}{D}*{IS}?				{ return I_CONSTANT; }
@@ -158,13 +158,11 @@ int yywrap(void)        /* called at end of input */
     return 1;           /* terminate now */
 }
 
-static void comment(void)
-{
+static void comment(void) {
     int c;
 
     while ((c = input()) != 0)
-        if (c == '*')
-        {
+        if (c == '*') {
             while ((c = input()) == '*')
                 ;
 
@@ -177,10 +175,8 @@ static void comment(void)
     yyerror("unterminated comment");
 }
 
-static int check_type(void)
-{
-    switch (sym_type(yytext))
-    {
+static int check_type(void) {
+    switch (sym_type(yytext)) {
     case TYPEDEF_NAME:                /* previously defined */
         return TYPEDEF_NAME;
     case ENUMERATION_CONSTANT:        /* previously defined */

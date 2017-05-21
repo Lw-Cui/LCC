@@ -1,11 +1,12 @@
-#ifndef SHELL_UTILITY_H
-#define SHELL_UTILITY_H
+#ifndef VECTOR_H
+#define VECTOR_H
 
 typedef struct {
     void **body;
     int len;
     int capacity;
 } Vector;
+
 
 void push_back(Vector *vec, void *ptr);
 
@@ -21,4 +22,12 @@ void clear(Vector *vec);
 
 void del_vec(Vector *vec);
 
-#endif //SHELL_UTILITY_H
+typedef struct {
+    Vector *impl;
+} String;
+
+String *make_string(char *);
+
+char *str(String *);
+
+#endif

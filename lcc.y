@@ -1,5 +1,7 @@
 %{
 #include <stdio.h>
+#include "lcc.h"
+YYSTYPE curSymbol;
 
 int yylex(void);
 void yyerror(const char *s) {
@@ -199,7 +201,7 @@ constant_expression
 
 declaration
 	: declaration_specifiers ';'
-	| declaration_specifiers init_declarator_list ';'
+	| declaration_specifiers init_declarator_list ';'   { printf("%d - %s\n", $1.type, str($2.name)); }
 	| static_assert_declaration
 	;
 

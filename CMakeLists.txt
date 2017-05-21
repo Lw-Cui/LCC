@@ -4,14 +4,17 @@ project(shell)
 set(CMAKE_C_STANDARD 11)
 
 set(SHELL_SOURCE_FILES shellDriver.c
-        vector.c vector.h
+        ADT.c ADT.h
         utility.c utility.h)
 add_executable(shell ${SHELL_SOURCE_FILES})
 
 set(LCC_SOURCE_FILES
         main.c
+        lcc.h
         y.tab.h
         y.tab.c
         lex.yy.c
+        ADT.c
+        ADT.h
         )
 add_executable(LCC ${LCC_SOURCE_FILES})

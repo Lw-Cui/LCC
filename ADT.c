@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <memory.h>
-#include "vector.h"
+#include <string.h>
+#include "ADT.h"
 
 static const int MIN_SIZE = 5;
 
@@ -62,3 +63,20 @@ void del_vec(Vector *vec) {
     free(vec->body);
     free(vec);
 }
+
+String *make_string(char *buf) {
+    String *str = malloc(sizeof(String));
+    str->impl = make_vector();
+    int len = (int) strlen(buf);
+    for (int i = 0; i < len; i++) {
+        char *p = malloc(sizeof(char));
+        *p = buf[i];
+        push_back(str->impl, p);
+    }
+    return str;
+}
+
+char *str(String *str) {
+    return c_str(str->impl);
+}
+

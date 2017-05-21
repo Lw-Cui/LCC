@@ -3,7 +3,15 @@ project(shell)
 
 set(CMAKE_C_STANDARD 11)
 
-set(SOURCE_FILES main.c
+set(SHELL_SOURCE_FILES shellDriver.c
         vector.c vector.h
         utility.c utility.h)
-add_executable(shell ${SOURCE_FILES})
+add_executable(shell ${SHELL_SOURCE_FILES})
+
+set(LCC_SOURCE_FILES
+        main.c
+        y.tab.h
+        y.tab.c
+        lex.yy.c
+        )
+add_executable(LCC ${LCC_SOURCE_FILES})

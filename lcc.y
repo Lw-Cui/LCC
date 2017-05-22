@@ -1,8 +1,9 @@
 %{
+
 #include <stdio.h>
 #include "lcc.h"
-YYSTYPE curSymbol;
 
+extern Symbol *symtab;
 int yylex(void);
 void yyerror(const char *s) {
 	fflush(stdout);
@@ -15,6 +16,7 @@ void yyerror(const char *s) {
 %token	SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
 %token	XOR_ASSIGN OR_ASSIGN
 %token	TYPEDEF_NAME ENUMERATION_CONSTANT
+%token	LEFT_BRACE RIGHT_BRACE
 
 %token	TYPEDEF EXTERN STATIC AUTO REGISTER INLINE
 %token	CONST RESTRICT VOLATILE
@@ -75,8 +77,8 @@ postfix_expression
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
 	| postfix_expression DEC_OP
-	| '(' type_name ')' '{' initializer_list '}'
-	| '(' type_name ')' '{' initializer_list ',' '}'
+	| '(' type_name ')' left_brace initializer_list right_brace
+	| '(' type_name ')' left_brace initializer_list ',' right_brace
 	;
 
 argument_expression_list
@@ -201,7 +203,10 @@ constant_expression
 
 declaration
 	: declaration_specifiers ';'
-	| declaration_specifiers init_declarator_list ';'   { printf("%d - %s\n", $1.type, str($2.name)); }
+	| declaration_specifiers init_declarator_list ';' {
+	    $$.self_type = $1.self_type;
+	    $$.name = $2.name;
+	}
 	| static_assert_declaration
 	;
 
@@ -239,9 +244,13 @@ storage_class_specifier
 
 type_specifier
 	: VOID
-	| CHAR
+	| CHAR {
+	    $$.self_type = DCHAR;
+	}
 	| SHORT
-	| INT
+	| INT {
+	    $$.self_type = DINT;
+	}
 	| LONG
 	| FLOAT
 	| DOUBLE
@@ -257,8 +266,8 @@ type_specifier
 	;
 
 struct_or_union_specifier
-	: struct_or_union '{' struct_declaration_list '}'
-	| struct_or_union IDENTIFIER '{' struct_declaration_list '}'
+	: struct_or_union left_brace struct_declaration_list right_brace
+	| struct_or_union IDENTIFIER left_brace struct_declaration_list right_brace
 	| struct_or_union IDENTIFIER
 	;
 
@@ -297,10 +306,10 @@ struct_declarator
 	;
 
 enum_specifier
-	: ENUM '{' enumerator_list '}'
-	| ENUM '{' enumerator_list ',' '}'
-	| ENUM IDENTIFIER '{' enumerator_list '}'
-	| ENUM IDENTIFIER '{' enumerator_list ',' '}'
+	: ENUM left_brace enumerator_list right_brace
+	| ENUM left_brace enumerator_list ',' right_brace
+	| ENUM IDENTIFIER left_brace enumerator_list right_brace
+	| ENUM IDENTIFIER left_brace enumerator_list ',' right_brace
 	| ENUM IDENTIFIER
 	;
 
@@ -352,7 +361,11 @@ direct_declarator
 	| direct_declarator '[' type_qualifier_list assignment_expression ']'
 	| direct_declarator '[' type_qualifier_list ']'
 	| direct_declarator '[' assignment_expression ']'
-	| direct_declarator '(' parameter_type_list ')'
+	| direct_declarator '(' parameter_type_list ')' {
+	    // normal function declaration
+	    $$.name = $1.name;
+	    $$.param = $3.param;
+	}
 	| direct_declarator '(' ')'
 	| direct_declarator '(' identifier_list ')'
 	;
@@ -377,13 +390,27 @@ parameter_type_list
 
 parameter_list
 	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+	| parameter_list ',' parameter_declaration {
+	    $$.param = $1.param;
+	    push_back($$.param, back($3.param));
+	}
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
+	: declaration_specifiers declarator {
+	    // single function parameter
+        if ($$.param == NULL) $$.param = make_vector();
+        Symbol *var = make_local_var_symbol($1.self_type, $2.name);
+        push_back($$.param, var);
+    }
+
 	| declaration_specifiers abstract_declarator
-	| declaration_specifiers
+	| declaration_specifiers {
+	    // function parameter
+        if ($$.param == NULL) $$.param = make_vector();
+        push_back($$.param, malloc(sizeof(Symbol)));
+        symbol_cast(back($$.param))->self_type = $1.self_type;
+    }
 	;
 
 identifier_list
@@ -427,8 +454,8 @@ direct_abstract_declarator
 	;
 
 initializer
-	: '{' initializer_list '}'
-	| '{' initializer_list ',' '}'
+	: left_brace initializer_list right_brace
+	| left_brace initializer_list ',' right_brace
 	| assignment_expression
 	;
 
@@ -473,9 +500,22 @@ labeled_statement
 	;
 
 compound_statement
-	: '{' '}'
-	| '{'  block_item_list '}'
+	: left_brace right_brace
+	| left_brace block_item_list right_brace
 	;
+
+left_brace
+    : LEFT_BRACE {
+        symtab = make_new_scope(symtab);
+    }
+    ;
+
+right_brace
+    : RIGHT_BRACE {
+        while (symtab->self_type != NEW_SCOPE) symtab = symtab->parent;
+        symtab = symtab->parent;
+    }
+    ;
 
 block_item_list
 	: block_item
@@ -483,7 +523,10 @@ block_item_list
 	;
 
 block_item
-	: declaration
+	: declaration {
+	    $$.self_type = $1.self_type;
+	    $$.name = $1.name;
+	}
 	| statement
 	;
 
@@ -526,9 +569,16 @@ external_declaration
 	;
 
 function_definition
-	: declaration_specifiers declarator declaration_list compound_statement
-	| declaration_specifiers declarator compound_statement
+	: function_definition_header compound_statement
 	;
+
+function_definition_header
+    : declaration_specifiers declarator declaration_list
+    | declaration_specifiers declarator {
+	    symtab = make_func_symbol($1.self_type, $2.name, $2.param, symtab);
+	    print_func_symbol(symtab);
+    }
+    ;
 
 declaration_list
 	: declaration

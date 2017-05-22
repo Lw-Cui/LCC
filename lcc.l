@@ -22,6 +22,7 @@ ES  (\\(['"\?\\abfnrtv]|[0-7]{1,3}|x[a-fA-F0-9]+))
 WS  [ \t\v\n\f]
 
 %{
+
 #include <stdio.h>
 #include "lcc.h"
 
@@ -56,7 +57,7 @@ static int check_type(void);
 "goto"					{ return(GOTO); }
 "if"					{ return(IF); }
 "inline"				{ return(INLINE); }
-"int"					{ yylval.type = (INT); return(INT); }
+"int"					{ return(INT); }
 "long"					{ return(LONG); }
 "register"				{ return(REGISTER); }
 "restrict"				{ return(RESTRICT); }
@@ -101,6 +102,8 @@ static int check_type(void);
 
 ({SP}?\"([^"\\\n]|{ES})*\"{WS}*)+	{ return STRING_LITERAL; }
 
+"{"                     { return LEFT_BRACE; }
+"}"                     { return RIGHT_BRACE; }
 "..."					{ return ELLIPSIS; }
 ">>="					{ return RIGHT_ASSIGN; }
 "<<="					{ return LEFT_ASSIGN; }

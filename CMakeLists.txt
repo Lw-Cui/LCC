@@ -10,11 +10,9 @@ add_executable(shell ${SHELL_SOURCE_FILES})
 
 set(LCC_SOURCE_FILES
         main.c
-        lcc.h
-        y.tab.h
-        y.tab.c
+        lcc.c lcc.h
+        y.tab.c y.tab.h
         lex.yy.c
-        ADT.c
-        ADT.h
+        ADT.c ADT.h
         )
 add_executable(LCC ${LCC_SOURCE_FILES})

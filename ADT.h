@@ -7,6 +7,9 @@ typedef struct {
     int capacity;
 } Vector;
 
+int size(Vector *vec);
+
+void *back(Vector *vec);
 
 void push_back(Vector *vec, void *ptr);
 

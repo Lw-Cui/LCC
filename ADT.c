@@ -77,6 +77,15 @@ String *make_string(char *buf) {
 }
 
 char *str(String *str) {
-    return c_str(str->impl);
+    if (str == NULL) return "";
+    else return c_str(str->impl);
+}
+
+void *back(Vector *vec) {
+    return vec->body[size(vec) - 1];
+}
+
+int size(Vector *vec) {
+    return vec->len;
 }
 

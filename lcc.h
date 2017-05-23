@@ -12,9 +12,10 @@ typedef enum {
 } Type;
 
 extern char *type_name[];
+extern FILE *output;
 
 typedef struct Assembly {
-    List *beg, *end;
+    List_node *beg, *end;
 } Assembly;
 
 Assembly *make_assembly();
@@ -22,6 +23,10 @@ Assembly *make_assembly();
 void assembly_push_back(Assembly *ptr, String *code);
 
 void assembly_push_front(Assembly *ptr, String *code);
+
+void assembly_output(Assembly *ptr);
+
+void emit_label_stmt(Assembly *code, String *str);
 
 typedef struct Analysis {
     struct Analysis *parent;

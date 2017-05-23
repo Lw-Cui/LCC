@@ -29,16 +29,26 @@ typedef struct String {
     Vector *impl;
 } String;
 
-String *make_string(char *);
+int len(String *);
 
 char *str(String *);
 
-typedef struct List {
-    struct List *prev, *next;
-    void *body;
-} List;
+String *make_string(char *);
 
-List *make_list(List *prev, void *body, List *next);
+String * merge_string(String *s1, String *s2);
+
+void append_string(String *s1, String *s2);
+
+void append_char(String *s1, char s2);
+
+char string_pos(String *, int pos);
+
+typedef struct List_node {
+    struct List_node *prev, *next;
+    void *body;
+} List_node;
+
+List_node *make_list(List_node *prev, void *body, List_node *next);
 
 
 #endif

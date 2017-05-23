@@ -89,11 +89,37 @@ int size(Vector *vec) {
     return vec->len;
 }
 
-List *make_list(List *prev, void *body, List *next) {
-    List *ptr = malloc(sizeof(List));
+List_node *make_list(List_node *prev, void *body, List_node *next) {
+    List_node *ptr = malloc(sizeof(List_node));
+    ptr->body = body;
     ptr->prev = prev;
     if (prev) prev->next = ptr;
     ptr->next = next;
     if (next) next->prev = ptr;
     return ptr;
+}
+
+void append_string(String *s1, String *s2) {
+    for (int i = 0; i < len(s2); i++)
+        append_char(s1, string_pos(s2, i));
+}
+
+int len(String *ptr) {
+    return size(ptr->impl);
+}
+
+void append_char(String *s1, char c) {
+    char *p = malloc(sizeof(char));
+    *p = c;
+    push_back(s1->impl, p);
+}
+
+char string_pos(String *ptr, int pos) {
+    return *(char *) at(ptr->impl, pos);
+}
+
+String *merge_string(String *s1, String *s2) {
+    String *tmp = make_string(str(s1));
+    append_string(tmp, s2);
+    return tmp;
 }

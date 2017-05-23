@@ -8,6 +8,7 @@ char *type_name[] = {
 };
 
 Symbol *symtab = 0;
+FILE *output = NULL;
 
 Symbol *symbol_cast(void *ptr) {
     return (Symbol *) ptr;
@@ -20,6 +21,7 @@ Symbol *make_func_symbol(Type ret_type, String *name, Vector *param, Symbol *par
     ptr->name = name;
     ptr->param = param;
     ptr->parent = parent;
+    ptr->assembly = make_assembly();
     return ptr;
 }
 
@@ -69,4 +71,15 @@ void assembly_push_back(Assembly *ptr, String *code) {
 
 void assembly_push_front(Assembly *ptr, String *code) {
     make_list(ptr->beg, code, ptr->beg->next);
+}
+
+void emit_label_stmt(Assembly *code, String *s) {
+    String *tmp = make_string(str(s));
+    append_char(tmp, ':');
+    assembly_push_back(code, tmp);
+}
+
+void assembly_output(Assembly *ptr) {
+    for (List_node *p = ptr->beg->next; p != ptr->end; p = p->next)
+        fprintf(output, "%s\n", str(p->body));
 }

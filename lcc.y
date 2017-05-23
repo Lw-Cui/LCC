@@ -4,6 +4,7 @@
 #include "lcc.h"
 
 extern Symbol *symtab;
+
 int yylex(void);
 void yyerror(const char *s) {
 	fflush(stdout);
@@ -560,8 +561,12 @@ jump_statement
 	;
 
 translation_unit
-	: external_declaration
-	| translation_unit external_declaration
+	: external_declaration {
+        if ($1.assembly) assembly_output($1.assembly);
+	}
+	| translation_unit external_declaration {
+        if ($2.assembly) assembly_output($2.assembly);
+	}
 	;
 
 external_declaration
@@ -570,7 +575,9 @@ external_declaration
 	;
 
 function_definition
-	: function_definition_header compound_statement
+	: function_definition_header compound_statement {
+	    $$ = $1;
+	}
 	;
 
 function_definition_header
@@ -579,7 +586,8 @@ function_definition_header
         // To support recursion
 	    symtab = make_func_symbol($1.self_type, $2.name, $2.param, symtab);
 	    print_func_symbol(symtab);
-
+	    if (!$$.assembly) $$.assembly = make_assembly();
+	    emit_label_stmt($$.assembly, $2.name);
     }
     ;
 

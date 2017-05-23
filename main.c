@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-extern FILE *yyin;
+extern FILE *yyin, *output;
 
 extern int yyparse();
 
@@ -10,6 +10,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
     yyin = fopen(argv[1], "r");
+    output = fopen("out.s", "w");
 
     yyparse();
 

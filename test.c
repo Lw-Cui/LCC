@@ -1,5 +1,6 @@
 int foo(int num, char) {
-    char tmp = 5;
+    char tmp;
+    tmp = 5;
     return 0;
 }
 

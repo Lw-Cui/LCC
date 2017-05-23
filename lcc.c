@@ -30,8 +30,9 @@ void print_func_symbol(Symbol *func) {
                str(symbol_cast(at(func->param, i))->name));
 }
 
-Symbol *make_local_var_symbol(Type self_type, String *name) {
+Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent) {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
+    ptr->parent = parent;
     ptr->self_type = self_type;
     ptr->name = name;
     return ptr;
@@ -44,3 +45,28 @@ Symbol *make_new_scope(Symbol *parent) {
     return ptr;
 }
 
+Symbol *make_param_symbol(Type type, String *name) {
+    Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
+    ptr->self_type = type;
+    ptr->name = name;
+    return ptr;
+}
+
+void print_local_symbol(Symbol *var) {
+    printf("\t\tLOCAL %s TYPE %s\n", str(var->name), type_name[var->self_type]);
+}
+
+Assembly *make_assembly() {
+    Assembly *ptr = malloc(sizeof(Assembly));
+    ptr->beg = make_list(NULL, NULL, NULL);
+    ptr->end = make_list(ptr->beg, NULL, NULL);
+    return ptr;
+}
+
+void assembly_push_back(Assembly *ptr, String *code) {
+    make_list(ptr->end->prev, code, ptr->end);
+}
+
+void assembly_push_front(Assembly *ptr, String *code) {
+    make_list(ptr->beg, code, ptr->beg->next);
+}

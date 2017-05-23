@@ -25,12 +25,20 @@ void clear(Vector *vec);
 
 void del_vec(Vector *vec);
 
-typedef struct {
+typedef struct String {
     Vector *impl;
 } String;
 
 String *make_string(char *);
 
 char *str(String *);
+
+typedef struct List {
+    struct List *prev, *next;
+    void *body;
+} List;
+
+List *make_list(List *prev, void *body, List *next);
+
 
 #endif

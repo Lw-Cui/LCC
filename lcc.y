@@ -175,11 +175,15 @@ conditional_expression
 
 assignment_expression
 	: conditional_expression
-	| unary_expression assignment_operator assignment_expression
+	| unary_expression assignment_operator assignment_expression {
+	    printf("%s %s something\n", str($1.name), str($2.name));
+	}
 	;
 
 assignment_operator
-	: '='
+	: '=' {
+	    $$.name = make_string("=");
+	}
 	| MUL_ASSIGN
 	| DIV_ASSIGN
 	| MOD_ASSIGN
@@ -204,8 +208,8 @@ constant_expression
 declaration
 	: declaration_specifiers ';'
 	| declaration_specifiers init_declarator_list ';' {
-	    $$.self_type = $1.self_type;
-	    $$.name = $2.name;
+	    symtab = make_local_symbol($1.self_type, $2.name, symtab);
+	    print_local_symbol(symtab);
 	}
 	| static_assert_declaration
 	;
@@ -400,7 +404,7 @@ parameter_declaration
 	: declaration_specifiers declarator {
 	    // single function parameter
         if ($$.param == NULL) $$.param = make_vector();
-        Symbol *var = make_local_var_symbol($1.self_type, $2.name);
+        Symbol *var = make_param_symbol($1.self_type, $2.name);
         push_back($$.param, var);
     }
 
@@ -523,10 +527,7 @@ block_item_list
 	;
 
 block_item
-	: declaration {
-	    $$.self_type = $1.self_type;
-	    $$.name = $1.name;
-	}
+	: declaration
 	| statement
 	;
 
@@ -575,8 +576,10 @@ function_definition
 function_definition_header
     : declaration_specifiers declarator declaration_list
     | declaration_specifiers declarator {
+        // To support recursion
 	    symtab = make_func_symbol($1.self_type, $2.name, $2.param, symtab);
 	    print_func_symbol(symtab);
+
     }
     ;
 

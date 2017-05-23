@@ -89,3 +89,11 @@ int size(Vector *vec) {
     return vec->len;
 }
 
+List *make_list(List *prev, void *body, List *next) {
+    List *ptr = malloc(sizeof(List));
+    ptr->prev = prev;
+    if (prev) prev->next = ptr;
+    ptr->next = next;
+    if (next) next->prev = ptr;
+    return ptr;
+}

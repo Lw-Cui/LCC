@@ -3,13 +3,56 @@
 
 #include "ADT.h"
 
+typedef enum Type_size {
+    byte,
+    word,
+    long_word,
+    quad_word
+} Type_size;
+
 typedef enum {
-    DCHAR,
-    DINT,
+    DCHAR = byte,
+    DINT = long_word,
     DFUNC,
     DFUNC_NAME,
     NEW_SCOPE,
 } Type;
+
+static int real_size[] = {
+        1,
+        2,
+        4,
+        8,
+};
+static char *type_name[] = {
+        "char",
+        "",
+        "int",
+};
+static char op_suffix[] = {
+        'b', 'w', 'l', 'q',
+};
+
+static char *arugments_register[][6] = {
+        {
+                "%dil",
+                "%sil",
+                "%dl",
+                "%cl",
+                "%r8b",
+                "%r9b",
+        },
+        {},
+        {
+
+                "%edi",
+                "%esi",
+                "%edx",
+                "%ecx",
+                "%r8d",
+                "%r9d",
+        },
+};
 
 extern FILE *output;
 
@@ -29,11 +72,18 @@ void assembly_output(Assembly *ptr);
 
 void emit_func_signature(Assembly *code, String *str);
 
+typedef struct Stack {
+    int offset;
+    int rsp;
+} Stack;
+
+int allocate_stack(Stack *, int, Assembly *);
+
 typedef struct Analysis {
     struct Analysis *parent;
     Type self_type, ret_type;
     String *name;
-    int offset;
+    Stack stack_info;
     Vector *param;
     Assembly *assembly;
 } Analysis;

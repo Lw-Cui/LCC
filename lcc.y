@@ -588,6 +588,7 @@ function_definition
 	: function_definition_header compound_statement {
 	    assembly_append($1.assembly, $2.assembly);
 	    $$ = $1;
+        assembly_push_back($$.assembly, sprint("\taddq   $%d, %%rsp", symtab->stack_info.rsp));
         assembly_push_back($$.assembly, make_string("\tpopq   %rbp"));
         assembly_push_back($$.assembly, make_string("\tret\n"));
         // goto decl
@@ -604,7 +605,7 @@ function_definition_header
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    emit_func_signature($$.assembly, $2.name);
         assembly_push_back($$.assembly, make_string("\tpushq  %rbp"));
-        assembly_push_back($$.assembly, make_string("\tmoveq  %rsp, %rbp"));
+        assembly_push_back($$.assembly, make_string("\tmovq  %rsp, %rbp"));
         emit_func_arguments($$.assembly, symtab);
     }
     ;

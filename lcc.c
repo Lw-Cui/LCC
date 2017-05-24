@@ -2,35 +2,6 @@
 #include <stdio.h>
 #include "lcc.h"
 
-/*
-typedef enum {
-    DCHAR,
-    DINT,
-    DFUNC,
-    DFUNC_NAME,
-    NEW_SCOPE,
-} Type;
-*/
-
-static int type_size[] = {
-        1,
-        4,
-};
-
-static char *type_name[] = {
-        "char",
-        "int",
-};
-
-static char *arugments_register[] = {
-        "%rdi",
-        "%rsi",
-        "%rdx",
-        "%rcx",
-        "%r8",
-        "%r9",
-};
-
 Symbol *symtab = 0;
 FILE *output = NULL;
 
@@ -46,10 +17,9 @@ Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol 
     ptr->param = param;
     ptr->parent = parent;
     ptr->assembly = make_assembly();
-
+    ptr->stack_info.offset = ptr->stack_info.rsp = 0;
     return ptr;
 }
-
 
 Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent) {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
@@ -99,17 +69,17 @@ void assembly_output(Assembly *ptr) {
 }
 
 void emit_func_arguments(Assembly *code, Analysis *func) {
-    int offset = -8;
     Assembly *al = make_assembly();
-    for (int i = 0; i < size(func->param); i++, offset -= 8) {
+    for (int i = 0; i < size(func->param); i++) {
         Symbol *arg = symbol_cast(at(func->param, i));
-        arg->offset = offset;
-        assembly_push_back(al, sprint("\t\t# passing %s (%s)", str(arg->name), type_name[arg->self_type]));
-        assembly_push_back(al, sprint("\tmovl   %s, %d(%%rbp)", arugments_register[i], offset));
+        arg->stack_info.offset = allocate_stack(&func->stack_info, real_size[arg->self_type], al);
+        assembly_push_back(al, sprint("\t# passing %s %d byte(s) %d(%%rbp)",
+                                      str(arg->name), real_size[arg->self_type], -arg->stack_info.offset));
+        assembly_push_back(al, sprint("\tmov%c   %s, %d(%%rbp)",
+                                      op_suffix[arg->self_type],
+                                      arugments_register[arg->self_type][i],
+                                      -arg->stack_info.offset));
     }
-    func->offset = offset;
-    offset += 8;
-    assembly_push_front(al, sprint("\tsubl   $%d, %%rsp", (offset / -16 + (offset % 16 != 0)) * -16));
     assembly_append(code, al);
 }
 
@@ -131,10 +101,9 @@ void assembly_append(Assembly *p1, Assembly *p2) {
 
 void emit_local_variable(Assembly *code, Symbol *s) {
     Symbol *func = get_top_scope(s);
-    s->offset = func->offset;
-    func->offset -= 8;
-    assembly_push_back(code, sprint("\t\t# allocate for %s (%s)", str(s->name), type_name[s->self_type]));
-    assembly_push_back(code, sprint("\tsubl   $16, %%rsp"));
+    s->stack_info.offset = allocate_stack(&func->stack_info, real_size[s->self_type], code);
+    assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
+                                    str(s->name), real_size[s->self_type], -s->stack_info.offset));
 }
 
 Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
@@ -146,3 +115,16 @@ Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol
     decl->parent = parent;
     return decl;
 }
+
+int allocate_stack(Stack *stack_info, int bytes, Assembly *code) {
+    for (int i = 0; i < bytes; i++)
+        if ((stack_info->offset + i + bytes) % bytes == 0) {
+            int ori = stack_info->rsp;
+            while (stack_info->offset + i + bytes > stack_info->rsp) stack_info->rsp += 16;
+            if (stack_info->rsp > ori)
+                assembly_push_back(code, sprint("\tsubq   $%d, %%rsp", stack_info->rsp - ori));
+            return stack_info->offset += i + bytes;
+        }
+    return 0xFFFF;
+}
+

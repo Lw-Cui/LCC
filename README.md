@@ -7,7 +7,7 @@ One of my object is to compile the `Tshell`.
 ## Tshell
 *T* means *toy* or *tiny*.
  
-I use malloc to implement dynamic array, so making sure that tshell doesn't have any memory leak is important -- look below.
+I use malloc to implement dynamic array, and thanks to `Valgrind` everything works fine.
 
 ```
 $ valgrind  --leak-check=full ./shell

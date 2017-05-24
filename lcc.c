@@ -2,9 +2,33 @@
 #include <stdio.h>
 #include "lcc.h"
 
-char *type_name[] = {
+/*
+typedef enum {
+    DCHAR,
+    DINT,
+    DFUNC,
+    DFUNC_NAME,
+    NEW_SCOPE,
+} Type;
+*/
+
+static int type_size[] = {
+        1,
+        4,
+};
+
+static char *type_name[] = {
         "char",
         "int",
+};
+
+static char *arugments_register[] = {
+        "%rdi",
+        "%rsi",
+        "%rdx",
+        "%rcx",
+        "%r8",
+        "%r9",
 };
 
 Symbol *symtab = 0;
@@ -25,12 +49,6 @@ Symbol *make_func_symbol(Type ret_type, String *name, Vector *param, Symbol *par
     return ptr;
 }
 
-void print_func_symbol(Symbol *func) {
-    printf("FUNC_NAME %s\n", str(func->name));
-    for (int i = 0; i < size(func->param); i++)
-        printf("\tFUNC_PARAM %d: %s - %s\n", i, type_name[symbol_cast(at(func->param, i))->self_type],
-               str(symbol_cast(at(func->param, i))->name));
-}
 
 Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent) {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
@@ -73,13 +91,21 @@ void assembly_push_front(Assembly *ptr, String *code) {
     make_list(ptr->beg, code, ptr->beg->next);
 }
 
-void emit_label_stmt(Assembly *code, String *s) {
-    String *tmp = make_string(str(s));
-    append_char(tmp, ':');
-    assembly_push_back(code, tmp);
+void emit_func_signature(Assembly *code, String *s) {
+    assembly_push_back(code, sprint("\t.globl %s\n\t.type  %s, @function", str(s), str(s)));
+    assembly_push_back(code, sprint("%s:", str(s)));
 }
 
 void assembly_output(Assembly *ptr) {
     for (List_node *p = ptr->beg->next; p != ptr->end; p = p->next)
         fprintf(output, "%s\n", str(p->body));
+}
+
+void emit_func_arguments(Assembly *code, Analysis *func) {
+    for (int i = 0, offset = -8; i < size(func->param); i++, offset -= 8) {
+        Symbol *arg = symbol_cast(at(func->param, i));
+        arg->offset = offset;
+        assembly_push_back(code, sprint("\t\t# passing %s (%s)", str(arg->name), type_name[arg->self_type]));
+        assembly_push_back(code, sprint("\tmovl   %s, %d(%%rbp)", arugments_register[i], offset));
+    }
 }

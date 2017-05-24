@@ -33,6 +33,7 @@
 *.su
 .idea/
 cmake-build-debug/
+out.s
 
 # lex and yacc files
 y.tab.c

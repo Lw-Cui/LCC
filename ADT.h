@@ -35,7 +35,9 @@ char *str(String *);
 
 String *make_string(char *);
 
-String * merge_string(String *s1, String *s2);
+String *sprint(char *fmt, ...);
+
+String *merge_string(String *s1, String *s2);
 
 void append_string(String *s1, String *s2);
 

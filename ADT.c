@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <memory.h>
+#include <stdio.h>
 #include <string.h>
+#include <zconf.h>
 #include "ADT.h"
 
 static const int MIN_SIZE = 5;
@@ -122,4 +124,14 @@ String *merge_string(String *s1, String *s2) {
     String *tmp = make_string(str(s1));
     append_string(tmp, s2);
     return tmp;
+}
+
+String *sprint(char *fmt, ...) {
+#define MAXLINE 500
+    char buf[MAXLINE];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, MAXLINE, fmt, ap);
+    va_end(ap);
+    return make_string(buf);
 }

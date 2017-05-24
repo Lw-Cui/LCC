@@ -577,6 +577,8 @@ external_declaration
 function_definition
 	: function_definition_header compound_statement {
 	    $$ = $1;
+        assembly_push_back($$.assembly, make_string("\tpopq   %rbp"));
+        assembly_push_back($$.assembly, make_string("\tret\n"));
 	}
 	;
 
@@ -585,9 +587,11 @@ function_definition_header
     | declaration_specifiers declarator {
         // To support recursion
 	    symtab = make_func_symbol($1.self_type, $2.name, $2.param, symtab);
-	    print_func_symbol(symtab);
 	    if (!$$.assembly) $$.assembly = make_assembly();
-	    emit_label_stmt($$.assembly, $2.name);
+	    emit_func_signature($$.assembly, $2.name);
+        assembly_push_back($$.assembly, make_string("\tpushq  %rbp"));
+        assembly_push_back($$.assembly, make_string("\tmoveq  %rsp, %rbp"));
+        emit_func_arguments($$.assembly, symtab);
     }
     ;
 

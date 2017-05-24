@@ -38,7 +38,7 @@ Symbol *symbol_cast(void *ptr) {
     return (Symbol *) ptr;
 }
 
-Symbol *make_func_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
+Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
     ptr->self_type = DFUNC;
     ptr->ret_type = ret_type;
@@ -46,6 +46,7 @@ Symbol *make_func_symbol(Type ret_type, String *name, Vector *param, Symbol *par
     ptr->param = param;
     ptr->parent = parent;
     ptr->assembly = make_assembly();
+
     return ptr;
 }
 
@@ -70,10 +71,6 @@ Symbol *make_param_symbol(Type type, String *name) {
     ptr->self_type = type;
     ptr->name = name;
     return ptr;
-}
-
-void print_local_symbol(Symbol *var) {
-    printf("\t\tLOCAL %s TYPE %s\n", str(var->name), type_name[var->self_type]);
 }
 
 Assembly *make_assembly() {
@@ -102,10 +99,50 @@ void assembly_output(Assembly *ptr) {
 }
 
 void emit_func_arguments(Assembly *code, Analysis *func) {
-    for (int i = 0, offset = -8; i < size(func->param); i++, offset -= 8) {
+    int offset = -8;
+    Assembly *al = make_assembly();
+    for (int i = 0; i < size(func->param); i++, offset -= 8) {
         Symbol *arg = symbol_cast(at(func->param, i));
         arg->offset = offset;
-        assembly_push_back(code, sprint("\t\t# passing %s (%s)", str(arg->name), type_name[arg->self_type]));
-        assembly_push_back(code, sprint("\tmovl   %s, %d(%%rbp)", arugments_register[i], offset));
+        assembly_push_back(al, sprint("\t\t# passing %s (%s)", str(arg->name), type_name[arg->self_type]));
+        assembly_push_back(al, sprint("\tmovl   %s, %d(%%rbp)", arugments_register[i], offset));
     }
+    func->offset = offset;
+    offset += 8;
+    assembly_push_front(al, sprint("\tsubl   $%d, %%rsp", (offset / -16 + (offset % 16 != 0)) * -16));
+    assembly_append(code, al);
+}
+
+Symbol *get_top_scope(Symbol *symtab) {
+    Symbol *s = symtab;
+    while (s != NULL && s->self_type != DFUNC) s = s->parent;
+    return s;
+}
+
+int is_global_variable(Symbol *symtab) {
+    Symbol *s = get_top_scope(symtab);
+    return s == NULL;
+}
+
+void assembly_append(Assembly *p1, Assembly *p2) {
+    if (p2 != NULL)
+        append_list(p1->beg, p1->end, p2->beg, p2->end);
+}
+
+void emit_local_variable(Assembly *code, Symbol *s) {
+    Symbol *func = get_top_scope(s);
+    s->offset = func->offset;
+    func->offset -= 8;
+    assembly_push_back(code, sprint("\t\t# allocate for %s (%s)", str(s->name), type_name[s->self_type]));
+    assembly_push_back(code, sprint("\tsubl   $16, %%rsp"));
+}
+
+Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
+    Symbol *decl = symbol_cast(malloc(sizeof(Symbol)));
+    decl->self_type = DFUNC_NAME;
+    decl->ret_type = ret_type;
+    decl->name = name;
+    decl->param = param;
+    decl->parent = parent;
+    return decl;
 }

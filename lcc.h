@@ -21,6 +21,8 @@ Assembly *make_assembly();
 
 void assembly_push_back(Assembly *ptr, String *code);
 
+void assembly_append(Assembly *ptr, Assembly *p);
+
 void assembly_push_front(Assembly *ptr, String *code);
 
 void assembly_output(Assembly *ptr);
@@ -40,9 +42,13 @@ typedef Analysis Symbol;
 
 void emit_func_arguments(Assembly *code, Analysis *func);
 
+void emit_local_variable(Assembly *code, Symbol *s);
+
 Symbol *symbol_cast(void *);
 
-Symbol *make_func_symbol(Type ret_type, String *name, Vector *param, Symbol *parent);
+Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol *parent);
+
+Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent);
 
 Symbol *make_local_symbol(Type, String *name, Symbol *parent);
 
@@ -50,7 +56,7 @@ Symbol *make_param_symbol(Type, String *name);
 
 Symbol *make_new_scope(Symbol *parent);
 
-void print_local_symbol(Symbol *var);
+int is_global_variable(Symbol *);
 
 #define YYSTYPE Analysis
 

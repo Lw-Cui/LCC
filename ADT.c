@@ -135,3 +135,15 @@ String *sprint(char *fmt, ...) {
     va_end(ap);
     return make_string(buf);
 }
+
+void append_list(List_node *p1_beg, List_node *p1_end, List_node *p2_beg, List_node *p2_end) {
+    if (p2_beg->next != p2_end) {
+        List_node *prev = p1_end->prev;
+        prev->next = p2_beg->next;
+        p2_beg->next->prev = prev;
+
+        prev = p2_end->prev;
+        prev->next = p1_end;
+        p1_end->prev = prev;
+    }
+}

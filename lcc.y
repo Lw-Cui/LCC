@@ -209,8 +209,13 @@ constant_expression
 declaration
 	: declaration_specifiers ';'
 	| declaration_specifiers init_declarator_list ';' {
-	    symtab = make_local_symbol($1.self_type, $2.name, symtab);
-	    print_local_symbol(symtab);
+	    if (!is_global_variable(symtab)) {
+            symtab = make_local_symbol($1.self_type, $2.name, symtab);
+            if (!$$.assembly) $$.assembly = make_assembly();
+            emit_local_variable($$.assembly, symtab);
+	    } else {
+	        printf("Global var\n");
+	    }
 	}
 	| static_assert_declaration
 	;
@@ -506,7 +511,9 @@ labeled_statement
 
 compound_statement
 	: left_brace right_brace
-	| left_brace block_item_list right_brace
+	| left_brace block_item_list right_brace {
+	    $$.assembly = $2.assembly;
+	}
 	;
 
 left_brace
@@ -524,7 +531,10 @@ right_brace
 
 block_item_list
 	: block_item
-	| block_item_list block_item
+	| block_item_list block_item {
+	    assembly_append($1.assembly, $2.assembly);
+	    $$.assembly = $1.assembly;
+	}
 	;
 
 block_item
@@ -576,9 +586,12 @@ external_declaration
 
 function_definition
 	: function_definition_header compound_statement {
+	    assembly_append($1.assembly, $2.assembly);
 	    $$ = $1;
         assembly_push_back($$.assembly, make_string("\tpopq   %rbp"));
         assembly_push_back($$.assembly, make_string("\tret\n"));
+        // goto decl
+        symtab = symtab->parent;
 	}
 	;
 
@@ -586,7 +599,8 @@ function_definition_header
     : declaration_specifiers declarator declaration_list
     | declaration_specifiers declarator {
         // To support recursion
-	    symtab = make_func_symbol($1.self_type, $2.name, $2.param, symtab);
+        Symbol *decl = make_func_decl_symbol($1.self_type, $2.name, $2.param, symtab);
+	    symtab = make_func_def_symbol($1.self_type, $2.name, $2.param, decl);
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    emit_func_signature($$.assembly, $2.name);
         assembly_push_back($$.assembly, make_string("\tpushq  %rbp"));
@@ -597,7 +611,10 @@ function_definition_header
 
 declaration_list
 	: declaration
-	| declaration_list declaration
+	| declaration_list declaration {
+	    assembly_append($1.assembly, $2.assembly);
+	    $$.assembly = $1.assembly;
+	}
 	;
 
 %%

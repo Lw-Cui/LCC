@@ -52,5 +52,6 @@ typedef struct List_node {
 
 List_node *make_list(List_node *prev, void *body, List_node *next);
 
+void append_list(List_node *p1_beg, List_node *p1_end, List_node *p2_beg, List_node *p2_end);
 
 #endif

@@ -147,3 +147,10 @@ void append_list(List_node *p1_beg, List_node *p1_end, List_node *p2_beg, List_n
         p1_end->prev = prev;
     }
 }
+
+int equal_string(String *s1, String *s2) {
+    if (s1 == NULL || s2 == NULL || size(s1->impl) != size(s2->impl)) return 0;
+    for (int idx = 0; idx < size(s1->impl); idx++)
+        if (*(char *) at(s1->impl, idx) != *(char *) at(s2->impl, idx)) return 0;
+    return 1;
+}

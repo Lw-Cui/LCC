@@ -45,6 +45,8 @@ void append_char(String *s1, char s2);
 
 char string_pos(String *, int pos);
 
+int equal_string(String *s1, String *s2);
+
 typedef struct List_node {
     struct List_node *prev, *next;
     void *body;

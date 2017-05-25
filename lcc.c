@@ -21,7 +21,7 @@ Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol 
     return ptr;
 }
 
-Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent) {
+Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent, Value res_info) {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
     ptr->parent = parent;
     ptr->self_type = self_type;
@@ -89,7 +89,7 @@ Symbol *get_top_scope(Symbol *symtab) {
     return s;
 }
 
-int is_global_variable(Symbol *symtab) {
+int in_global_scope(Symbol *symtab) {
     Symbol *s = get_top_scope(symtab);
     return s == NULL;
 }
@@ -104,6 +104,7 @@ void emit_local_variable(Assembly *code, Symbol *s) {
     s->stack_info.offset = allocate_stack(&func->stack_info, real_size[s->self_type], code);
     assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
                                     str(s->name), real_size[s->self_type], -s->stack_info.offset));
+    // TODO: add initializer if res_offset isn't equal to 0xFFFF
 }
 
 Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
@@ -128,3 +129,60 @@ int allocate_stack(Stack *stack_info, int bytes, Assembly *code) {
     return 0xFFFF;
 }
 
+int has_result(Value *p) {
+    return p->index >= 0;
+}
+
+int get_constant_result(Value *p) {
+    return (p->index == 0 ? p->int_num : 0xFFFF);
+}
+
+int get_stack_offset(Value *p) {
+    return (has_stack_offset(p) ? p->offset : 0xFFFF);
+}
+
+void set_constant_result(Value *p, int val) {
+    p->index = 0;
+    p->int_num = val;
+}
+
+void set_stack_offset(Value *p, int offset) {
+    p->index = 1;
+    p->offset = offset;
+}
+
+void free_stack(Stack *p, int byte) {
+    p->offset -= byte;
+}
+
+int has_stack_offset(Value *p) {
+    return p->index == 1;
+}
+
+Symbol *find_name(Symbol *symtab, String *name) {
+    Symbol *s = symtab;
+    while (s != NULL && !equal_string(s->name, name)) s = s->parent;
+    return s;
+}
+
+int emit_push_variable(Assembly *code, Value *res_info, Stack *func_info) {
+    int offset = allocate_stack(func_info, 4, code);
+    assembly_push_back(code, sprint("\tmovl   %d(%%rbp), %%eax", res_info->offset));
+    assembly_push_back(code, sprint("\tmovl   %%eax, %d(%%rbp)", -offset));
+    return offset;
+}
+
+int emit_push_register(Assembly *code, String *reg, Stack *func_info) {
+    int offset = allocate_stack(func_info, 4, code);
+    assembly_push_back(code, sprint("\tmovl   %%%s, %d(%%rbp)", str(reg), -offset));
+    return offset;
+}
+
+void emit_pop(Assembly *code, Value *res_info, Stack *func_info, String *reg) {
+    if (has_stack_offset(res_info)) {
+        assembly_push_back(code, sprint("\tmovl   %d(%%rbp), %%%s", -get_stack_offset(res_info), str(reg)));
+    } else {
+        assembly_push_back(code, sprint("\tmovl   $%d, %%%s", -get_stack_offset(res_info), str(reg)));
+    }
+    free_stack(func_info, 4);
+}

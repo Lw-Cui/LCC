@@ -89,7 +89,7 @@ static int check_type(void);
 {L}{A}*					{ yylval.name = make_string(yytext); return check_type(); }
 
 {HP}{H}+{IS}?				{ return I_CONSTANT; }
-{NZ}{D}*{IS}?				{ return I_CONSTANT; }
+{NZ}{D}*{IS}?				{  set_constant_result(&yylval.res_info, atoi(yytext)); return I_CONSTANT; }
 "0"{O}*{IS}?				{ return I_CONSTANT; }
 {CP}?"'"([^'\\\n]|{ES})+"'"		{ return I_CONSTANT; }
 

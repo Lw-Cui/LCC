@@ -4,18 +4,20 @@
 #include "ADT.h"
 
 typedef enum Type_size {
-    byte,
-    word,
-    long_word,
-    quad_word
+    BYTE,
+    WORD,
+    LONG_WORD,
+    QUAD_WORD
 } Type_size;
 
-typedef enum {
-    DCHAR = byte,
-    DINT = long_word,
-    DFUNC,
-    DFUNC_NAME,
-    NEW_SCOPE,
+typedef enum Type {
+    DCHAR = BYTE,
+    DINT = LONG_WORD,
+    DFUNC,          // function definition
+    DFUNC_NAME,     // function declaration
+    NEW_SCOPE,      // new scope, e.g. function, for, while, if
+    INUM,           // int constant number
+    NOT_KNOWN,
 } Type;
 
 static int real_size[] = {
@@ -79,16 +81,43 @@ typedef struct Stack {
 
 int allocate_stack(Stack *, int, Assembly *);
 
+void free_stack(Stack *, int);
+
+typedef struct Value {
+    int index;
+    int int_num;
+    int offset;
+} Value;
+
+int has_result(Value *);
+
+void set_constant_result(Value *, int val);
+
+int get_constant_result(Value *);
+
+int has_stack_offset(Value *);
+
+void set_stack_offset(Value *, int offset);
+
+int get_stack_offset(Value *);
+
 typedef struct Analysis {
     struct Analysis *parent;
     Type self_type, ret_type;
     String *name;
     Stack stack_info;
+    Value res_info;
     Vector *param;
     Assembly *assembly;
 } Analysis;
 
 typedef Analysis Symbol;
+
+int emit_push_variable(Assembly *code, Value *res_info, Stack *func_info);
+
+int emit_push_register(Assembly *code, String *reg, Stack *func_info);
+
+void emit_pop(Assembly *code, Value *res_info, Stack *func_info, String *reg);
 
 void emit_func_arguments(Assembly *code, Analysis *func);
 
@@ -100,13 +129,17 @@ Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol 
 
 Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent);
 
-Symbol *make_local_symbol(Type, String *name, Symbol *parent);
+Symbol *make_local_symbol(Type, String *name, Symbol *parent, Value res_info);
 
 Symbol *make_param_symbol(Type, String *name);
 
 Symbol *make_new_scope(Symbol *parent);
 
-int is_global_variable(Symbol *);
+Symbol *find_name(Symbol *symtab, String *name);
+
+Symbol *get_top_scope(Symbol *symtab);
+
+int in_global_scope(Symbol *);
 
 #define YYSTYPE Analysis
 

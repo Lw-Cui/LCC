@@ -1,14 +1,23 @@
 %{
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <memory.h>
+#include <string.h>
+#include <zconf.h>
 #include "lcc.h"
 
 extern Symbol *symtab;
 
 int yylex(void);
-void yyerror(const char *s) {
+void yyerror(const char *fmt, ...) {
 	fflush(stdout);
-	fprintf(stderr, "*** %s\n", s);
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "*** ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
 }
 %}
 %token	IDENTIFIER I_CONSTANT F_CONSTANT STRING_LITERAL FUNC_NAME SIZEOF
@@ -33,7 +42,14 @@ void yyerror(const char *s) {
 %%
 
 primary_expression
-	: IDENTIFIER
+	: IDENTIFIER {
+	    // just appeared in assignment expression
+	    if (!$$.assembly) $$.assembly = make_assembly();
+	    Symbol *var = find_name(symtab, $$.name);
+	    set_stack_offset(&var->res_info, var->stack_info.offset);
+	    set_stack_offset(&$$.res_info,
+            emit_push_variable($$.assembly, &var->res_info, &get_top_scope(symtab)->stack_info));
+	}
 	| constant
 	| string
 	| '(' expression ')'
@@ -41,7 +57,7 @@ primary_expression
 	;
 
 constant
-	: I_CONSTANT		/* includes character_constant */
+	: I_CONSTANT            /* includes character_constant */
 	| F_CONSTANT
 	| ENUMERATION_CONSTANT	/* after it has been defined as such */
 	;
@@ -120,7 +136,17 @@ multiplicative_expression
 
 additive_expression
 	: multiplicative_expression
-	| additive_expression '+' multiplicative_expression
+	| additive_expression '+' multiplicative_expression {
+	    assembly_append($1.assembly, $3.assembly);
+	    $$ = $1;
+        assembly_push_back($$.assembly, sprint("\t# add op"));
+        Stack *func_stack = &get_top_scope(symtab)->stack_info;
+        emit_pop($$.assembly, &$1.res_info, func_stack, make_string("eax"));
+        emit_pop($$.assembly, &$3.res_info, func_stack, make_string("ebx"));
+        assembly_push_back($$.assembly, sprint("\taddl   %%ebx, %%eax"));
+	    set_stack_offset(&$$.res_info,
+            emit_push_register($$.assembly, make_string("eax"),func_stack));
+	}
 	| additive_expression '-' multiplicative_expression
 	;
 
@@ -177,7 +203,9 @@ conditional_expression
 assignment_expression
 	: conditional_expression
 	| unary_expression assignment_operator assignment_expression {
-	    printf("%s %s something\n", str($1.name), str($2.name));
+	    // Assignment, not initialization.
+	    assembly_append($1.assembly, $3.assembly);
+	    $$.assembly = $1.assembly;
 	}
 	;
 
@@ -207,14 +235,18 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers ';'
+	: declaration_specifiers ';' {
+	    /*
+	        Maybe it's about struct:
+	        struct A { int b; };
+	    */
+	    yyerror("`int;` isn't supported yet.");
+	}
 	| declaration_specifiers init_declarator_list ';' {
-	    if (!is_global_variable(symtab)) {
-            symtab = make_local_symbol($1.self_type, $2.name, symtab);
+	    if (!in_global_scope(symtab)) {
+	        symtab->self_type = $1.self_type;
             if (!$$.assembly) $$.assembly = make_assembly();
             emit_local_variable($$.assembly, symtab);
-	    } else {
-	        printf("Global var\n");
 	    }
 	}
 	| static_assert_declaration
@@ -234,13 +266,26 @@ declaration_specifiers
 	;
 
 init_declarator_list
-	: init_declarator
-	| init_declarator_list ',' init_declarator
+	: init_declarator {
+	    if (!in_global_scope(symtab)) {
+            symtab = make_local_symbol(NOT_KNOWN, $1.name, symtab, $1.res_info);
+        } else {
+	        yyerror("Global var isn't supported yet: %s", str($1.name));
+        }
+	}
+	| init_declarator_list ',' init_declarator {
+	    yyerror("Just support single declarator.");
+	}
 	;
 
 init_declarator
-	: declarator '=' initializer
-	| declarator
+	: declarator '=' initializer {
+	    // TODO: modify res_offset
+    }
+	| declarator {
+	    // no initializer
+	    $$.res_info.index = -1;
+	}
 	;
 
 storage_class_specifier
@@ -360,7 +405,7 @@ declarator
 	;
 
 direct_declarator
-	: IDENTIFIER
+	: IDENTIFIER    // used in declaration, not normal expression
 	| '(' declarator ')'
 	| direct_declarator '[' ']'
 	| direct_declarator '[' '*' ']'
@@ -605,7 +650,7 @@ function_definition_header
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    emit_func_signature($$.assembly, $2.name);
         assembly_push_back($$.assembly, make_string("\tpushq  %rbp"));
-        assembly_push_back($$.assembly, make_string("\tmovq  %rsp, %rbp"));
+        assembly_push_back($$.assembly, make_string("\tmovq   %rsp, %rbp"));
         emit_func_arguments($$.assembly, symtab);
     }
     ;

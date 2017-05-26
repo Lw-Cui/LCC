@@ -46,9 +46,12 @@ primary_expression
 	    // just appeared in assignment expression
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    Symbol *var = find_name(symtab, $1.name);
-	    $$.res_info = var->res_info;
+	    set_stack_offset(&$$.res_info, var->stack_info.offset);
 	}
-	| constant
+	| constant {
+	    // res_info has been set in lexx.l
+	    if (!$$.assembly) $$.assembly = make_assembly();
+	}
 	| string
 	| '(' expression ')'
 	| generic_selection
@@ -124,10 +127,13 @@ cast_expression
 	: unary_expression {
 	    // avoid pushing `a` into stack when parsing `a = b;`
 	    if (!$$.assembly) $$.assembly = make_assembly();
-        assembly_push_back($$.assembly, sprint("\t# push"));
-        if (has_stack_offset(&$1.res_info))
+        // init and assign
+        if (has_constant(&$1.res_info)) {
+            $$.res_info = $1.res_info;
+        } else if (has_stack_offset(&$1.res_info)) {
             set_stack_offset(&$$.res_info,
-                emit_push_variable($$.assembly, &$1.res_info, &get_top_scope(symtab)->stack_info));
+                emit_push_value($$.assembly, &$1.res_info, &get_top_scope(symtab)->stack_info));
+        }
 	}
 	| '(' type_name ')' cast_expression
 	;
@@ -255,6 +261,7 @@ declaration
 	    if (!in_global_scope(symtab)) {
 	        symtab->self_type = $1.self_type;
             if (!$$.assembly) $$.assembly = make_assembly();
+            assembly_append($$.assembly, $2.assembly);
             emit_local_variable($$.assembly, symtab);
 	    }
 	}
@@ -276,11 +283,10 @@ declaration_specifiers
 
 init_declarator_list
 	: init_declarator {
-	    if (!in_global_scope(symtab)) {
+	    if (!in_global_scope(symtab))
             symtab = make_local_symbol(NOT_KNOWN, $1.name, symtab, $1.res_info);
-        } else {
+        else
 	        yyerror("Global var isn't supported yet: %s", str($1.name));
-        }
 	}
 	| init_declarator_list ',' init_declarator {
 	    yyerror("Just support single declarator.");
@@ -289,7 +295,8 @@ init_declarator_list
 
 init_declarator
 	: declarator '=' initializer {
-	    // TODO: modify res_offset
+	    $$.res_info = $3.res_info;
+	    $$.assembly = $3.assembly;
     }
 	| declarator {
 	    // no initializer

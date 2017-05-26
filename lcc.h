@@ -89,11 +89,11 @@ typedef struct Value {
     int offset;
 } Value;
 
-int has_result(Value *);
+int has_constant(Value *);
 
-void set_constant_result(Value *, int val);
+void set_constant(Value *, int val);
 
-int get_constant_result(Value *);
+int get_constant(Value *);
 
 int has_stack_offset(Value *);
 
@@ -113,7 +113,7 @@ typedef struct Analysis {
 
 typedef Analysis Symbol;
 
-int emit_push_variable(Assembly *code, Value *res_info, Stack *func_info);
+int emit_push_value(Assembly *code, Value *res_info, Stack *func_info);
 
 int emit_push_register(Assembly *code, String *reg, Stack *func_info);
 

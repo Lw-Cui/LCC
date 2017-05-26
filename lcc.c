@@ -26,6 +26,7 @@ Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent, Value re
     ptr->parent = parent;
     ptr->self_type = self_type;
     ptr->name = name;
+    ptr->res_info = res_info;
     return ptr;
 }
 
@@ -102,10 +103,20 @@ void assembly_append(Assembly *p1, Assembly *p2) {
 void emit_local_variable(Assembly *code, Symbol *s) {
     Symbol *func = get_top_scope(s);
     s->stack_info.offset = allocate_stack(&func->stack_info, real_size[s->self_type], code);
-    set_stack_offset(&s->res_info, s->stack_info.offset);
     assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
                                     str(s->name), real_size[s->self_type], -s->stack_info.offset));
-    // TODO: add initializer if res_offset isn't equal to 0xFFFF
+    if (has_constant(&s->res_info)) {
+        assembly_push_back(code, sprint("\tmov%c   $%d, %d(%%rbp)",
+                                        op_suffix[s->self_type],
+                                        get_constant(&s->res_info),
+                                        -s->stack_info.offset));
+    } else if (has_stack_offset(&s->res_info)) {
+        assembly_push_back(code, sprint("\tmovl   %d(%%rbp), %%eax", -get_stack_offset(&s->res_info)));
+        assembly_push_back(code, sprint("\tmov%c   %%eax, %d(%%rbp)",
+                                        op_suffix[s->self_type], -s->stack_info.offset));
+    }
+    // after init, res_info should be set as the same as stack_info
+    set_stack_offset(&s->res_info, s->stack_info.offset);
 }
 
 Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
@@ -130,20 +141,20 @@ int allocate_stack(Stack *stack_info, int bytes, Assembly *code) {
     return 0xFFFF;
 }
 
-int has_result(Value *p) {
-    return p->index >= 0;
+int has_constant(Value *p) {
+    return p->index == 2;
 }
 
-int get_constant_result(Value *p) {
-    return (p->index == 0 ? p->int_num : 0xFFFF);
+int get_constant(Value *p) {
+    return (p->index == 2 ? p->int_num : 0xFFFF);
 }
 
 int get_stack_offset(Value *p) {
     return (has_stack_offset(p) ? p->offset : 0xFFFF);
 }
 
-void set_constant_result(Value *p, int val) {
-    p->index = 0;
+void set_constant(Value *p, int val) {
+    p->index = 2;
     p->int_num = val;
 }
 
@@ -166,10 +177,15 @@ Symbol *find_name(Symbol *symtab, String *name) {
     return s;
 }
 
-int emit_push_variable(Assembly *code, Value *res_info, Stack *func_info) {
+int emit_push_value(Assembly *code, Value *res_info, Stack *func_info) {
+    assembly_push_back(code, sprint("\t# push"));
     int offset = allocate_stack(func_info, 4, code);
-    assembly_push_back(code, sprint("\tmovl   %d(%%rbp), %%eax", res_info->offset));
-    assembly_push_back(code, sprint("\tmovl   %%eax, %d(%%rbp)", -offset));
+    if (has_constant(res_info)) {
+        assembly_push_back(code, sprint("\tmovl   $%d, %d(%%rbp)", get_constant(res_info), -offset));
+    } else if (has_stack_offset(res_info)) {
+        assembly_push_back(code, sprint("\tmovl   %d(%%rbp), %%eax", -get_stack_offset(res_info)));
+        assembly_push_back(code, sprint("\tmovl   %%eax, %d(%%rbp)", -offset));
+    }
     return offset;
 }
 
@@ -182,8 +198,9 @@ int emit_push_register(Assembly *code, String *reg, Stack *func_info) {
 void emit_pop(Assembly *code, Value *res_info, Stack *func_info, String *reg) {
     if (has_stack_offset(res_info)) {
         assembly_push_back(code, sprint("\tmovl   %d(%%rbp), %%%s", -get_stack_offset(res_info), str(reg)));
-    } else {
-        assembly_push_back(code, sprint("\tmovl   $%d, %%%s", -get_stack_offset(res_info), str(reg)));
+        free_stack(func_info, 4);
+    } else if (has_constant(res_info)) {
+        assembly_push_back(code, sprint("\tmovl   $%d, %%%s", get_constant(res_info), str(reg)));
     }
-    free_stack(func_info, 4);
 }
+

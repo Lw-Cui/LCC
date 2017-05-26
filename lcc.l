@@ -88,9 +88,21 @@ static int check_type(void);
 
 {L}{A}*					{ yylval.name = make_string(yytext); return check_type(); }
 
-{HP}{H}+{IS}?				{ return I_CONSTANT; }
-{NZ}{D}*{IS}?				{  set_constant_result(&yylval.res_info, atoi(yytext)); return I_CONSTANT; }
-"0"{O}*{IS}?				{ return I_CONSTANT; }
+{HP}{H}+{IS}? {
+    // hex: 0FFF
+    set_constant(&yylval.res_info, atoi(yytext)); return I_CONSTANT;
+}
+
+{NZ}{D}*{IS}? {
+    // 123
+    set_constant(&yylval.res_info, atoi(yytext)); return I_CONSTANT;
+ }
+
+"0"{O}*{IS}? {
+    //  Oct: 0123u
+    set_constant(&yylval.res_info, atoi(yytext)); return I_CONSTANT;
+}
+
 {CP}?"'"([^'\\\n]|{ES})+"'"		{ return I_CONSTANT; }
 
 {D}+{E}{FS}?				{ return F_CONSTANT; }

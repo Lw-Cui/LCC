@@ -4,12 +4,11 @@ int foo(int num, char b, char c, int e) {
 
 int var;
 
-int main(void) {
-    int v1;
-    int v2;
-    int v3;
-    int v4;
-    v3 = v1 + v2 + v3 + v4;
+int main(int count) {
+    int v1 = 6;
+    int v2 = v1 + 7;
+    int v3 = 0;
+    v3 = v1 + 4 + v2;
     return 0;
 }
 

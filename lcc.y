@@ -45,10 +45,8 @@ primary_expression
 	: IDENTIFIER {
 	    // just appeared in assignment expression
 	    if (!$$.assembly) $$.assembly = make_assembly();
-	    Symbol *var = find_name(symtab, $$.name);
-	    set_stack_offset(&var->res_info, var->stack_info.offset);
-	    set_stack_offset(&$$.res_info,
-            emit_push_variable($$.assembly, &var->res_info, &get_top_scope(symtab)->stack_info));
+	    Symbol *var = find_name(symtab, $1.name);
+	    $$.res_info = var->res_info;
 	}
 	| constant
 	| string
@@ -123,7 +121,14 @@ unary_operator
 	;
 
 cast_expression
-	: unary_expression
+	: unary_expression {
+	    // avoid pushing `a` into stack when parsing `a = b;`
+	    if (!$$.assembly) $$.assembly = make_assembly();
+        assembly_push_back($$.assembly, sprint("\t# push"));
+        if (has_stack_offset(&$1.res_info))
+            set_stack_offset(&$$.res_info,
+                emit_push_variable($$.assembly, &$1.res_info, &get_top_scope(symtab)->stack_info));
+	}
 	| '(' type_name ')' cast_expression
 	;
 
@@ -139,7 +144,7 @@ additive_expression
 	| additive_expression '+' multiplicative_expression {
 	    assembly_append($1.assembly, $3.assembly);
 	    $$ = $1;
-        assembly_push_back($$.assembly, sprint("\t# add op"));
+        assembly_push_back($$.assembly, sprint("\t# pop and add"));
         Stack *func_stack = &get_top_scope(symtab)->stack_info;
         emit_pop($$.assembly, &$1.res_info, func_stack, make_string("eax"));
         emit_pop($$.assembly, &$3.res_info, func_stack, make_string("ebx"));
@@ -206,6 +211,10 @@ assignment_expression
 	    // Assignment, not initialization.
 	    assembly_append($1.assembly, $3.assembly);
 	    $$.assembly = $1.assembly;
+        Stack *func_stack = &get_top_scope(symtab)->stack_info;
+        emit_pop($$.assembly, &$3.res_info, func_stack, make_string("eax"));
+        assembly_push_back($$.assembly, sprint("\t# assign"));
+        assembly_push_back($$.assembly, sprint("\tmovl   %%eax, %d(%%rbp)", get_stack_offset(&$1.res_info)));
 	}
 	;
 
@@ -458,7 +467,6 @@ parameter_declaration
         Symbol *var = make_param_symbol($1.self_type, $2.name);
         push_back($$.param, var);
     }
-
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers {
 	    // function parameter

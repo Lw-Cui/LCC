@@ -102,6 +102,7 @@ void assembly_append(Assembly *p1, Assembly *p2) {
 void emit_local_variable(Assembly *code, Symbol *s) {
     Symbol *func = get_top_scope(s);
     s->stack_info.offset = allocate_stack(&func->stack_info, real_size[s->self_type], code);
+    set_stack_offset(&s->res_info, s->stack_info.offset);
     assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
                                     str(s->name), real_size[s->self_type], -s->stack_info.offset));
     // TODO: add initializer if res_offset isn't equal to 0xFFFF

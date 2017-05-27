@@ -102,6 +102,9 @@ void assembly_append(Assembly *p1, Assembly *p2) {
 
 void emit_local_variable(Assembly *code, Symbol *s) {
     Symbol *func = get_top_scope(s);
+    if (has_stack_offset(&s->res_info))
+        emit_pop(code, &s->res_info, &func->stack_info, 0);
+
     s->stack_info.offset = allocate_stack(&func->stack_info, real_size[s->self_type], code);
     assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
                                     str(s->name), real_size[s->self_type], -s->stack_info.offset));
@@ -111,9 +114,10 @@ void emit_local_variable(Assembly *code, Symbol *s) {
                                         get_constant(&s->res_info),
                                         -s->stack_info.offset));
     } else if (has_stack_offset(&s->res_info)) {
-        assembly_push_back(code, sprint("\tmovl   %d(%%rbp), %%eax", -get_stack_offset(&s->res_info)));
-        assembly_push_back(code, sprint("\tmov%c   %%eax, %d(%%rbp)",
-                                        op_suffix[s->self_type], -s->stack_info.offset));
+        assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
+                                        op_suffix[s->self_type],
+                                        reg[0][s->self_type],
+                                        -s->stack_info.offset));
     }
     // after init, res_info should be set as the same as stack_info
     set_stack_offset(&s->res_info, s->stack_info.offset);
@@ -177,30 +181,57 @@ Symbol *find_name(Symbol *symtab, String *name) {
     return s;
 }
 
-int emit_push_value(Assembly *code, Value *res_info, Stack *func_info) {
-    assembly_push_back(code, sprint("\t# push"));
-    int offset = allocate_stack(func_info, 4, code);
-    if (has_constant(res_info)) {
-        assembly_push_back(code, sprint("\tmovl   $%d, %d(%%rbp)", get_constant(res_info), -offset));
-    } else if (has_stack_offset(res_info)) {
-        assembly_push_back(code, sprint("\tmovl   %d(%%rbp), %%eax", -get_stack_offset(res_info)));
-        assembly_push_back(code, sprint("\tmovl   %%eax, %d(%%rbp)", -offset));
-    }
-    return offset;
-}
-
-int emit_push_register(Assembly *code, String *reg, Stack *func_info) {
-    int offset = allocate_stack(func_info, 4, code);
-    assembly_push_back(code, sprint("\tmovl   %%%s, %d(%%rbp)", str(reg), -offset));
-    return offset;
-}
-
-void emit_pop(Assembly *code, Value *res_info, Stack *func_info, String *reg) {
+void emit_push_var(Assembly *code, Value *res_info, Stack *func_info) {
+    //Noting to do with res_info when it stores real value
     if (has_stack_offset(res_info)) {
-        assembly_push_back(code, sprint("\tmovl   %d(%%rbp), %%%s", -get_stack_offset(res_info), str(reg)));
+        int offset = allocate_stack(func_info, real_size[LONG_WORD], code);
+        assembly_push_back(code, sprint("\t# push %d(%%rbp)", -offset));
+        assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
+                                        op_suffix[LONG_WORD],
+                                        -get_stack_offset(res_info),
+                                        reg[0][LONG_WORD]));
+        assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
+                                        op_suffix[LONG_WORD],
+                                        reg[0][LONG_WORD],
+                                        -offset));
+        set_stack_offset(res_info, offset);
+    }
+}
+
+int emit_push_register(Assembly *code, size_t idx, Stack *func_info) {
+    int offset = allocate_stack(func_info, real_size[LONG_WORD], code);
+    assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
+                                    op_suffix[LONG_WORD],
+                                    reg[idx][LONG_WORD],
+                                    -offset));
+    return offset;
+}
+
+void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx) {
+    if (has_stack_offset(res_info)) {
+        assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
+                                        op_suffix[LONG_WORD],
+                                        -get_stack_offset(res_info),
+                                        reg[idx][LONG_WORD]));
         free_stack(func_info, 4);
     } else if (has_constant(res_info)) {
-        assembly_push_back(code, sprint("\tmovl   $%d, %%%s", get_constant(res_info), str(reg)));
+        assembly_push_back(code, sprint("\tmov%c   $%d, %%%s",
+                                        op_suffix[LONG_WORD],
+                                        get_constant(res_info),
+                                        reg[idx][LONG_WORD]));
     }
+}
+
+int pop_and_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
+    assembly_push_back(code, sprint("\t# (pop and) add"));
+    emit_pop(code, op1, func_stack, 0);
+    emit_pop(code, op2, func_stack, 1);
+    assembly_push_back(code, sprint("\t%s%c   %%%s, %%%s",
+                                    op_prefix,
+                                    op_suffix[LONG_WORD],
+                                    reg[1][LONG_WORD],
+                                    reg[0][LONG_WORD]
+    ));
+    return emit_push_register(code, 0, func_stack);
 }
 

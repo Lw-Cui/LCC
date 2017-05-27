@@ -31,6 +31,23 @@ static char *type_name[] = {
         "",
         "int",
 };
+
+static char *reg[][4] = {
+        {
+                "al",
+                "ax",
+                "eax",
+                "rax",
+        },
+        {
+
+                "bl",
+                "bx",
+                "ebx",
+                "rbx",
+        }
+};
+
 static char op_suffix[] = {
         'b', 'w', 'l', 'q',
 };
@@ -113,11 +130,13 @@ typedef struct Analysis {
 
 typedef Analysis Symbol;
 
-int emit_push_value(Assembly *code, Value *res_info, Stack *func_info);
+int pop_and_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_info);
 
-int emit_push_register(Assembly *code, String *reg, Stack *func_info);
+void emit_push_var(Assembly *code, Value *res_info, Stack *func_info);
 
-void emit_pop(Assembly *code, Value *res_info, Stack *func_info, String *reg);
+int emit_push_register(Assembly *code, size_t idx, Stack *func_info);
+
+void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx);
 
 void emit_func_arguments(Assembly *code, Analysis *func);
 

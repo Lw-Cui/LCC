@@ -46,6 +46,7 @@ primary_expression
 	    // just appeared in assignment expression
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    Symbol *var = find_name(symtab, $1.name);
+	    if (var == NULL) yyerror("%s hasn't been defined.", str(var->name));
 	    set_stack_offset(&$$.res_info, var->stack_info.offset);
 	}
 	| constant {
@@ -125,15 +126,10 @@ unary_operator
 
 cast_expression
 	: unary_expression {
-	    // avoid pushing `a` into stack when parsing `a = b;`
+	    /* avoid pushing `a` into stack when parsing `a = b;` */
 	    if (!$$.assembly) $$.assembly = make_assembly();
-        // init and assign
-        if (has_constant(&$1.res_info)) {
-            $$.res_info = $1.res_info;
-        } else if (has_stack_offset(&$1.res_info)) {
-            set_stack_offset(&$$.res_info,
-                emit_push_value($$.assembly, &$1.res_info, &get_top_scope(symtab)->stack_info));
-        }
+        emit_push_var($$.assembly, &$1.res_info, &get_top_scope(symtab)->stack_info);
+        $$.res_info = $1.res_info;
 	}
 	| '(' type_name ')' cast_expression
 	;
@@ -150,13 +146,8 @@ additive_expression
 	| additive_expression '+' multiplicative_expression {
 	    assembly_append($1.assembly, $3.assembly);
 	    $$ = $1;
-        assembly_push_back($$.assembly, sprint("\t# pop and add"));
         Stack *func_stack = &get_top_scope(symtab)->stack_info;
-        emit_pop($$.assembly, &$1.res_info, func_stack, make_string("eax"));
-        emit_pop($$.assembly, &$3.res_info, func_stack, make_string("ebx"));
-        assembly_push_back($$.assembly, sprint("\taddl   %%ebx, %%eax"));
-	    set_stack_offset(&$$.res_info,
-            emit_push_register($$.assembly, make_string("eax"),func_stack));
+        set_stack_offset(&$$.res_info, pop_and_op($$.assembly, &$1.res_info, "add", &$3.res_info, func_stack));
 	}
 	| additive_expression '-' multiplicative_expression
 	;
@@ -218,9 +209,12 @@ assignment_expression
 	    assembly_append($1.assembly, $3.assembly);
 	    $$.assembly = $1.assembly;
         Stack *func_stack = &get_top_scope(symtab)->stack_info;
-        emit_pop($$.assembly, &$3.res_info, func_stack, make_string("eax"));
+        emit_pop($$.assembly, &$3.res_info, func_stack, 0);
         assembly_push_back($$.assembly, sprint("\t# assign"));
-        assembly_push_back($$.assembly, sprint("\tmovl   %%eax, %d(%%rbp)", get_stack_offset(&$1.res_info)));
+        assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, %d(%%rbp)",
+                                    op_suffix[LONG_WORD],
+                                    reg[0][LONG_WORD],
+                                    -get_stack_offset(&$1.res_info)));
 	}
 	;
 
@@ -261,6 +255,7 @@ declaration
 	    if (!in_global_scope(symtab)) {
 	        symtab->self_type = $1.self_type;
             if (!$$.assembly) $$.assembly = make_assembly();
+            // $2.assembly stores initialization result, so should be appended firstly
             assembly_append($$.assembly, $2.assembly);
             emit_local_variable($$.assembly, symtab);
 	    }
@@ -288,9 +283,7 @@ init_declarator_list
         else
 	        yyerror("Global var isn't supported yet: %s", str($1.name));
 	}
-	| init_declarator_list ',' init_declarator {
-	    yyerror("Just support single declarator.");
-	}
+	| init_declarator_list ',' init_declarator
 	;
 
 init_declarator

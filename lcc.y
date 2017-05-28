@@ -9,7 +9,7 @@
 #define POP_AND_OP(op, inst)\
         assembly_append((yyvsp[(1) - (3)]).assembly, (yyvsp[(3) - (3)]).assembly);\
 	    (yyval) = (yyvsp[(1) - (3)]);\
-        Stack *func_stack = &get_top_scope(symtab)->stack_info;\
+        func_stack = &get_top_scope(symtab)->stack_info;\
         set_stack_offset(&(yyval).res_info, \
             op((yyval).assembly, &(yyvsp[(1) - (3)]).res_info, inst, &(yyvsp[(3) - (3)]).res_info, func_stack));
 
@@ -143,9 +143,11 @@ cast_expression
 multiplicative_expression
 	: cast_expression
 	| multiplicative_expression '*' cast_expression {
+        Stack *func_stack;
 	    POP_AND_OP(pop_and_single_op, "mul");
 	}
 	| multiplicative_expression '/' cast_expression {
+        Stack *func_stack;
 	    POP_AND_OP(pop_and_single_op, "div");
 	}
 	| multiplicative_expression '%' cast_expression
@@ -154,9 +156,11 @@ multiplicative_expression
 additive_expression
 	: multiplicative_expression
 	| additive_expression '+' multiplicative_expression {
+        Stack *func_stack;
 	    POP_AND_OP(pop_and_double_op, "add");
 	}
 	| additive_expression '-' multiplicative_expression {
+        Stack *func_stack;
 	    POP_AND_OP(pop_and_double_op, "sub");
 	}
 	;
@@ -164,19 +168,37 @@ additive_expression
 shift_expression
 	: additive_expression
 	| shift_expression LEFT_OP additive_expression {
+        Stack *func_stack;
 	    POP_AND_OP(pop_and_shift, "sal");
 	}
 	| shift_expression RIGHT_OP additive_expression {
+        Stack *func_stack;
 	    POP_AND_OP(pop_and_shift, "sar");
 	}
 	;
 
 relational_expression
 	: shift_expression
-	| relational_expression '<' shift_expression
-	| relational_expression '>' shift_expression
-	| relational_expression LE_OP shift_expression
-	| relational_expression GE_OP shift_expression
+	| relational_expression '<' shift_expression {
+        Stack *func_stack;
+	    POP_AND_OP(pop_and_double_op, "cmp");
+	    POP_AND_OP(pop_and_set, "setl");
+	}
+	| relational_expression '>' shift_expression {
+        Stack *func_stack;
+	    POP_AND_OP(pop_and_double_op, "cmp");
+	    POP_AND_OP(pop_and_set, "setg");
+    }
+	| relational_expression LE_OP shift_expression {
+        Stack *func_stack;
+	    POP_AND_OP(pop_and_double_op, "cmp");
+	    POP_AND_OP(pop_and_set, "setle");
+	}
+	| relational_expression GE_OP shift_expression {
+        Stack *func_stack;
+	    POP_AND_OP(pop_and_double_op, "cmp");
+	    POP_AND_OP(pop_and_set, "setg");
+    }
 	;
 
 equality_expression

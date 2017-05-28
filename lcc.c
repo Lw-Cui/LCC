@@ -225,7 +225,7 @@ void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx) {
 }
 
 int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
-    assembly_push_back(code, sprint("\t# (pop and) add"));
+    assembly_push_back(code, sprint("\t# (pop and) %s", op_prefix));
     emit_pop(code, op1, func_stack, 0);
     emit_pop(code, op2, func_stack, 1);
     assembly_push_back(code, sprint("\t%s%c   %%%s, %%%s",
@@ -238,7 +238,7 @@ int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, S
 }
 
 int pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
-    assembly_push_back(code, sprint("\t# (pop and) add"));
+    assembly_push_back(code, sprint("\t# (pop and) %s", op_prefix));
     emit_pop(code, op1, func_stack, 0);
     emit_pop(code, op2, func_stack, 1);
     assembly_push_back(code, sprint("\t%s%c   %%%s",
@@ -250,13 +250,28 @@ int pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, S
 }
 
 int pop_and_shift(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
-    assembly_push_back(code, sprint("\t# (pop and) add"));
+    assembly_push_back(code, sprint("\t# (pop and) %s", op_prefix));
     emit_pop(code, op1, func_stack, 0);
     emit_pop(code, op2, func_stack, 2);
     assembly_push_back(code, sprint("\t%s%c   %%%s, %%%s",
                                     op_prefix,
                                     op_suffix[LONG_WORD],
                                     reg[2][BYTE],
+                                    reg[0][LONG_WORD]
+    ));
+    return emit_push_register(code, 0, func_stack);
+}
+
+int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_stack) {
+    assembly_push_back(code, sprint("\t# %s", op));
+    assembly_push_back(code, sprint("\t%s   %%%s",
+                                    op,
+                                    reg[0][BYTE]
+    ));
+    assembly_push_back(code, sprint("\tmovz%c%c %%%s, %%%s",
+                                    op_suffix[BYTE],
+                                    op_suffix[LONG_WORD],
+                                    reg[0][BYTE],
                                     reg[0][LONG_WORD]
     ));
     return emit_push_register(code, 0, func_stack);

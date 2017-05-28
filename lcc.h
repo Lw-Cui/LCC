@@ -141,6 +141,8 @@ int pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, S
 
 int pop_and_shift(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack);
 
+int pop_and_set(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack);
+
 void emit_push_var(Assembly *code, Value *res_info, Stack *func_info);
 
 int emit_push_register(Assembly *code, size_t idx, Stack *func_info);

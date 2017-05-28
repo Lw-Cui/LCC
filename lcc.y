@@ -6,6 +6,12 @@
 #include <string.h>
 #include <zconf.h>
 #include "lcc.h"
+#define POP_AND_OP(op, inst)\
+        assembly_append((yyvsp[(1) - (3)]).assembly, (yyvsp[(3) - (3)]).assembly);\
+	    (yyval) = (yyvsp[(1) - (3)]);\
+        Stack *func_stack = &get_top_scope(symtab)->stack_info;\
+        set_stack_offset(&(yyval).res_info, \
+            op((yyval).assembly, &(yyvsp[(1) - (3)]).res_info, inst, &(yyvsp[(3) - (3)]).res_info, func_stack));
 
 extern Symbol *symtab;
 
@@ -136,26 +142,33 @@ cast_expression
 
 multiplicative_expression
 	: cast_expression
-	| multiplicative_expression '*' cast_expression
-	| multiplicative_expression '/' cast_expression
+	| multiplicative_expression '*' cast_expression {
+	    POP_AND_OP(pop_and_single_op, "mul");
+	}
+	| multiplicative_expression '/' cast_expression {
+	    POP_AND_OP(pop_and_single_op, "div");
+	}
 	| multiplicative_expression '%' cast_expression
 	;
 
 additive_expression
 	: multiplicative_expression
 	| additive_expression '+' multiplicative_expression {
-	    assembly_append($1.assembly, $3.assembly);
-	    $$ = $1;
-        Stack *func_stack = &get_top_scope(symtab)->stack_info;
-        set_stack_offset(&$$.res_info, pop_and_op($$.assembly, &$1.res_info, "add", &$3.res_info, func_stack));
+	    POP_AND_OP(pop_and_double_op, "add");
 	}
-	| additive_expression '-' multiplicative_expression
+	| additive_expression '-' multiplicative_expression {
+	    POP_AND_OP(pop_and_double_op, "sub");
+	}
 	;
 
 shift_expression
 	: additive_expression
-	| shift_expression LEFT_OP additive_expression
-	| shift_expression RIGHT_OP additive_expression
+	| shift_expression LEFT_OP additive_expression {
+	    POP_AND_OP(pop_and_shift, "sal");
+	}
+	| shift_expression RIGHT_OP additive_expression {
+	    POP_AND_OP(pop_and_shift, "sar");
+	}
 	;
 
 relational_expression
@@ -641,7 +654,7 @@ function_definition
 	: function_definition_header compound_statement {
 	    assembly_append($1.assembly, $2.assembly);
 	    $$ = $1;
-        assembly_push_back($$.assembly, sprint("\taddq   $%d, %%rsp", symtab->stack_info.rsp));
+        assembly_push_back($$.assembly, sprint("\taddq   $%d, %%rsp", get_top_scope(symtab)->stack_info.rsp));
         assembly_push_back($$.assembly, make_string("\tpopq   %rbp"));
         assembly_push_back($$.assembly, make_string("\tret\n"));
         // goto decl

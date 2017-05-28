@@ -16,7 +16,6 @@ typedef enum Type {
     DFUNC,          // function definition
     DFUNC_NAME,     // function declaration
     NEW_SCOPE,      // new scope, e.g. function, for, while, if
-    INUM,           // int constant number
     NOT_KNOWN,
 } Type;
 
@@ -40,11 +39,17 @@ static char *reg[][4] = {
                 "rax",
         },
         {
-
                 "bl",
                 "bx",
                 "ebx",
                 "rbx",
+        },
+        {
+                "cl",
+                "cx",
+                "ecx",
+                "rcx",
+
         }
 };
 
@@ -130,7 +135,11 @@ typedef struct Analysis {
 
 typedef Analysis Symbol;
 
-int pop_and_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_info);
+int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *);
+
+int pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *);
+
+int pop_and_shift(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack);
 
 void emit_push_var(Assembly *code, Value *res_info, Stack *func_info);
 

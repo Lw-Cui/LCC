@@ -1,21 +1,3 @@
-	.globl foo
-	.type  foo, @function
-foo:
-	pushq  %rbp
-	movq   %rsp, %rbp
-	subq   $16, %rsp
-	# passing num 4 byte(s) -4(%rbp)
-	movl   %edi, -4(%rbp)
-	# passing b 1 byte(s) -5(%rbp)
-	movb   %sil, -5(%rbp)
-	# passing c 1 byte(s) -6(%rbp)
-	movb   %dl, -6(%rbp)
-	# passing e 4 byte(s) -12(%rbp)
-	movl   %ecx, -12(%rbp)
-	addq   $16, %rsp
-	popq   %rbp
-	ret
-
 	.globl main
 	.type  main, @function
 main:
@@ -24,9 +6,17 @@ main:
 	subq   $16, %rsp
 	# passing count 4 byte(s) -4(%rbp)
 	movl   %edi, -4(%rbp)
+	# push -8(%rbp)
+	movl   -4(%rbp), %eax
+	movl   %eax, -8(%rbp)
+	# (pop and) add
+	movl   $1, %eax
+	movl   -8(%rbp), %ebx
+	mull   %ebx
+	movl   %eax, -8(%rbp)
 	# (pop and) add
 	movl   $6, %eax
-	movl   $5, %ebx
+	movl   -8(%rbp), %ebx
 	addl   %ebx, %eax
 	movl   %eax, -8(%rbp)
 	movl   -8(%rbp), %eax
@@ -37,8 +27,8 @@ main:
 	movl   %eax, -12(%rbp)
 	# (pop and) add
 	movl   -12(%rbp), %eax
-	movl   $7, %ebx
-	addl   %ebx, %eax
+	movl   $5, %ebx
+	subl   %ebx, %eax
 	movl   %eax, -12(%rbp)
 	movl   -12(%rbp), %eax
 	# allocate v2 4 byte(s) -12(%rbp)
@@ -49,13 +39,13 @@ main:
 	# push -20(%rbp)
 	movl   -8(%rbp), %eax
 	movl   %eax, -20(%rbp)
-	# (pop and) add
-	movl   -20(%rbp), %eax
-	movl   $4, %ebx
-	addl   %ebx, %eax
-	movl   %eax, -20(%rbp)
 	# push -24(%rbp)
 	movl   -12(%rbp), %eax
+	movl   %eax, -24(%rbp)
+	# (pop and) add
+	movl   $8, %eax
+	movl   -24(%rbp), %ebx
+	divl   %ebx
 	movl   %eax, -24(%rbp)
 	# (pop and) add
 	movl   -20(%rbp), %eax
@@ -65,6 +55,28 @@ main:
 	movl   -20(%rbp), %eax
 	# assign
 	movl   %eax, -16(%rbp)
+	# push -20(%rbp)
+	movl   -16(%rbp), %eax
+	movl   %eax, -20(%rbp)
+	# (pop and) add
+	movl   -20(%rbp), %eax
+	movl   $2, %ecx
+	sarl   %cl, %eax
+	movl   %eax, -20(%rbp)
+	movl   -20(%rbp), %eax
+	# allocate v4 4 byte(s) -20(%rbp)
+	movl   %eax, -20(%rbp)
+	# push -24(%rbp)
+	movl   -20(%rbp), %eax
+	movl   %eax, -24(%rbp)
+	# (pop and) add
+	movl   -24(%rbp), %eax
+	movl   $1, %ecx
+	sall   %cl, %eax
+	movl   %eax, -24(%rbp)
+	movl   -24(%rbp), %eax
+	# assign
+	movl   %eax, -20(%rbp)
 	addq   $32, %rsp
 	popq   %rbp
 	ret

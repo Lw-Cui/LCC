@@ -73,6 +73,8 @@ void emit_func_arguments(Assembly *code, Analysis *func) {
     Assembly *al = make_assembly();
     for (int i = 0; i < size(func->param); i++) {
         Symbol *arg = symbol_cast(at(func->param, i));
+        arg->parent = symtab;
+        symtab = arg;
         arg->stack_info.offset = allocate_stack(&func->stack_info, real_size[arg->self_type], al);
         assembly_push_back(al, sprint("\t# passing %s %d byte(s) %d(%%rbp)",
                                       str(arg->name), real_size[arg->self_type], -arg->stack_info.offset));
@@ -222,7 +224,7 @@ void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx) {
     }
 }
 
-int pop_and_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
+int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
     assembly_push_back(code, sprint("\t# (pop and) add"));
     emit_pop(code, op1, func_stack, 0);
     emit_pop(code, op2, func_stack, 1);
@@ -230,6 +232,31 @@ int pop_and_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *f
                                     op_prefix,
                                     op_suffix[LONG_WORD],
                                     reg[1][LONG_WORD],
+                                    reg[0][LONG_WORD]
+    ));
+    return emit_push_register(code, 0, func_stack);
+}
+
+int pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
+    assembly_push_back(code, sprint("\t# (pop and) add"));
+    emit_pop(code, op1, func_stack, 0);
+    emit_pop(code, op2, func_stack, 1);
+    assembly_push_back(code, sprint("\t%s%c   %%%s",
+                                    op_prefix,
+                                    op_suffix[LONG_WORD],
+                                    reg[1][LONG_WORD]
+    ));
+    return emit_push_register(code, 0, func_stack);
+}
+
+int pop_and_shift(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
+    assembly_push_back(code, sprint("\t# (pop and) add"));
+    emit_pop(code, op1, func_stack, 0);
+    emit_pop(code, op2, func_stack, 2);
+    assembly_push_back(code, sprint("\t%s%c   %%%s, %%%s",
+                                    op_prefix,
+                                    op_suffix[LONG_WORD],
+                                    reg[2][BYTE],
                                     reg[0][LONG_WORD]
     ));
     return emit_push_register(code, 0, func_stack);

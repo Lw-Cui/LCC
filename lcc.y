@@ -249,7 +249,10 @@ assignment_operator
 
 expression
 	: assignment_expression
-	| expression ',' assignment_expression
+	| expression ',' assignment_expression {
+	    assembly_append($1.assembly, $2.assembly);
+	    $$.assembly = $1.assembly;
+	}
 	;
 
 constant_expression
@@ -633,7 +636,10 @@ jump_statement
 	| CONTINUE ';'
 	| BREAK ';'
 	| RETURN ';'
-	| RETURN expression ';'
+	| RETURN expression ';' {
+	    $$ = $2;
+	    emit_pop($$.assembly, &$2.res_info, &get_top_scope(symtab)->stack_info, 0);
+    }
 	;
 
 translation_unit

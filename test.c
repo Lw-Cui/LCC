@@ -5,6 +5,6 @@ int main(int count) {
     v3 = v1 + 8 / v2;       // 11
     int v4 = v3 >> 2;       // 2
     v4 = v4 << 1;           // 4
-    return 0;
+    return v4 + 3;          // 7
 }
 

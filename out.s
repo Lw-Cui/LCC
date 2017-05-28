@@ -77,6 +77,15 @@ main:
 	movl   -24(%rbp), %eax
 	# assign
 	movl   %eax, -20(%rbp)
+	# push -24(%rbp)
+	movl   -20(%rbp), %eax
+	movl   %eax, -24(%rbp)
+	# (pop and) add
+	movl   -24(%rbp), %eax
+	movl   $3, %ebx
+	addl   %ebx, %eax
+	movl   %eax, -24(%rbp)
+	movl   -24(%rbp), %eax
 	addq   $32, %rsp
 	popq   %rbp
 	ret

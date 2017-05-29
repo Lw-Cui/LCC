@@ -6,6 +6,12 @@
 #include <string.h>
 #include <zconf.h>
 #include "lcc.h"
+/*
+ *  assembly_append($1.assembly, $3.assembly);
+ *  $$ = $1;
+ *  Stack *func_stack = &get_top_scope(symtab)->stack_info;
+ *  set_stack_offset($$.res_info, op($$.assembly, $1.res_info, inst, $3.res_info, func_stack);
+ */
 #define POP_AND_OP(op, inst)\
         assembly_append((yyvsp[(1) - (3)]).assembly, (yyvsp[(3) - (3)]).assembly);\
 	    (yyval) = (yyvsp[(1) - (3)]);\
@@ -14,6 +20,7 @@
             op((yyval).assembly, &(yyvsp[(1) - (3)]).res_info, inst, &(yyvsp[(3) - (3)]).res_info, func_stack));
 
 extern Symbol *symtab;
+extern Label label;
 
 int yylex(void);
 void yyerror(const char *fmt, ...) {
@@ -284,9 +291,9 @@ constant_expression
 declaration
 	: declaration_specifiers ';' {
 	    /*
-	        Maybe it's about struct:
-	        struct A { int b; };
-	    */
+	     *  Maybe it's about struct:
+	     *  struct A { int b; };
+	     */
 	    yyerror("`int;` isn't supported yet.");
 	}
 	| declaration_specifiers init_declarator_list ';' {
@@ -616,6 +623,7 @@ left_brace
 right_brace
     : RIGHT_BRACE {
         while (symtab->self_type != NEW_SCOPE) symtab = symtab->parent;
+        // TODO: release resource
         symtab = symtab->parent;
     }
     ;
@@ -640,7 +648,13 @@ expression_statement
 
 selection_statement
 	: IF '(' expression ')' statement ELSE statement
-	| IF '(' expression ')' statement
+	| IF '(' expression ')' statement {
+        set_Label(&label);
+	    pop_and_je($3.assembly, &$3.res_info, get_end_label(&label), &get_top_scope(symtab)->stack_info);
+        assembly_push_back($5.assembly, append_char(get_end_label(&label), ':'));
+	    assembly_append($3.assembly, $5.assembly);
+	    $$.assembly = $3.assembly;
+	}
 	| SWITCH '(' expression ')' statement
 	;
 

@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include "lcc.h"
 
-Symbol *symtab = 0;
+Symbol *symtab = NULL;
+Label label = {0};
 FILE *output = NULL;
 
 Symbol *symbol_cast(void *ptr) {
@@ -165,6 +166,7 @@ void set_constant(Value *p, int val) {
 }
 
 void set_stack_offset(Value *p, int offset) {
+    if (offset == INVALID_OFFSET) return;
     p->index = 1;
     p->offset = offset;
 }
@@ -277,3 +279,27 @@ int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_st
     return emit_push_register(code, 0, func_stack);
 }
 
+void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack) {
+    assembly_push_back(code, sprint("\t# pop, cmp and je"));
+    emit_pop(code, op1, func_stack, 0);
+    assembly_push_back(code, sprint("\tcmp%c   $0, %%%s",
+                                    op_suffix[LONG_WORD],
+                                    reg[0][LONG_WORD]
+    ));
+    assembly_push_back(code, sprint("\tje     %s",
+                                    str(if_equal)
+    ));
+}
+
+void set_Label(Label *p) {
+    p->beg_label++;
+    p->end_label++;
+}
+
+String *get_beg_label(Label *p) {
+    return sprint(".B%d", p->beg_label);
+}
+
+String *get_end_label(Label *p) {
+    return sprint(".E%d", p->end_label);
+}

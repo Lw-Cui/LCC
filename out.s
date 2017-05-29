@@ -95,21 +95,49 @@ main:
 	# push -32(%rbp)
 	movl   -20(%rbp), %eax
 	movl   %eax, -32(%rbp)
-	# (pop and) add
+	# (pop and) cmp
 	movl   -32(%rbp), %eax
-	movl   $3, %ebx
-	addl   %ebx, %eax
+	movl   $0, %ebx
+	cmpl   %ebx, %eax
 	movl   %eax, -32(%rbp)
+	# setl
+	setl   %al
+	movzbl %al, %eax
 	subq   $16, %rsp
-	# push -36(%rbp)
+	movl   %eax, -36(%rbp)
+	# pop, cmp and je
+	movl   -36(%rbp), %eax
+	cmpl   $0, %eax
+	je     .E1
+	# push -40(%rbp)
 	movl   -28(%rbp), %eax
+	movl   %eax, -40(%rbp)
+	# (pop and) add
+	movl   -40(%rbp), %eax
+	movl   $1, %ebx
+	addl   %ebx, %eax
+	movl   %eax, -40(%rbp)
+	movl   -40(%rbp), %eax
+	# assign
+	movl   %eax, -28(%rbp)
+.E1:
+	# push -36(%rbp)
+	movl   -20(%rbp), %eax
 	movl   %eax, -36(%rbp)
 	# (pop and) add
-	movl   -32(%rbp), %eax
-	movl   -36(%rbp), %ebx
+	movl   -36(%rbp), %eax
+	movl   $3, %ebx
 	addl   %ebx, %eax
-	movl   %eax, -32(%rbp)
-	movl   -32(%rbp), %eax
+	movl   %eax, -36(%rbp)
+	# push -40(%rbp)
+	movl   -28(%rbp), %eax
+	movl   %eax, -40(%rbp)
+	# (pop and) add
+	movl   -36(%rbp), %eax
+	movl   -40(%rbp), %ebx
+	addl   %ebx, %eax
+	movl   %eax, -36(%rbp)
+	movl   -36(%rbp), %eax
 	addq   $48, %rsp
 	popq   %rbp
 	ret

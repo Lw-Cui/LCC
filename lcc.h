@@ -96,6 +96,8 @@ void assembly_output(Assembly *ptr);
 
 void emit_func_signature(Assembly *code, String *str);
 
+#define INVALID_OFFSET 0xFFFFFF
+
 typedef struct Stack {
     int offset;
     int rsp;
@@ -123,6 +125,17 @@ void set_stack_offset(Value *, int offset);
 
 int get_stack_offset(Value *);
 
+typedef struct Label {
+    int beg_label;
+    int end_label;
+} Label;
+
+void set_Label(Label *);
+
+String *get_beg_label(Label *);
+
+String *get_end_label(Label *);
+
 typedef struct Analysis {
     struct Analysis *parent;
     Type self_type, ret_type;
@@ -134,6 +147,8 @@ typedef struct Analysis {
 } Analysis;
 
 typedef Analysis Symbol;
+
+void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack);
 
 int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *);
 

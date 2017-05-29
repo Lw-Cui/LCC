@@ -39,9 +39,9 @@ String *sprint(char *fmt, ...);
 
 String *merge_string(String *s1, String *s2);
 
-void append_string(String *s1, String *s2);
+String * append_string(String *s1, String *s2);
 
-void append_char(String *s1, char s2);
+String * append_char(String *s1, char s2);
 
 char string_pos(String *, int pos);
 

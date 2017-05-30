@@ -210,8 +210,16 @@ relational_expression
 
 equality_expression
 	: relational_expression
-	| equality_expression EQ_OP relational_expression
-	| equality_expression NE_OP relational_expression
+	| equality_expression EQ_OP relational_expression {
+        Stack *func_stack;
+	    POP_AND_OP(pop_and_double_op, "cmp");
+	    POP_AND_OP(pop_and_set, "sete");
+	}
+	| equality_expression NE_OP relational_expression {
+        Stack *func_stack;
+	    POP_AND_OP(pop_and_double_op, "cmp");
+	    POP_AND_OP(pop_and_set, "setne");
+	}
 	;
 
 and_expression
@@ -653,7 +661,16 @@ expression_statement
 	;
 
 selection_statement
-	: IF '(' expression ')' statement ELSE statement
+	: IF '(' expression ')' statement ELSE statement {
+        set_Label(&label);
+	    pop_and_je($3.assembly, &$3.res_info, get_beg_label(&label), &get_top_scope(symtab)->stack_info);
+        assembly_push_front($7.assembly, append_char(get_beg_label(&label), ':'));
+        assembly_push_back($7.assembly, append_char(get_end_label(&label), ':'));
+        emit_jump($5.assembly, get_end_label(&label));
+	    assembly_append($5.assembly, $7.assembly);
+	    assembly_append($3.assembly, $5.assembly);
+	    $$.assembly = $3.assembly;
+	}
 	| IF '(' expression ')' statement {
         set_Label(&label);
 	    pop_and_je($3.assembly, &$3.res_info, get_end_label(&label), &get_top_scope(symtab)->stack_info);

@@ -129,20 +129,52 @@ main:
 	# push -36(%rbp)
 	movl   -20(%rbp), %eax
 	movl   %eax, -36(%rbp)
-	# (pop and) add
+	# (pop and) cmp
 	movl   -36(%rbp), %eax
+	movl   $4, %ebx
+	cmpl   %ebx, %eax
+	movl   %eax, -36(%rbp)
+	# setne
+	setne   %al
+	movzbl %al, %eax
+	movl   %eax, -40(%rbp)
+	# pop, cmp and je
+	movl   -40(%rbp), %eax
+	cmpl   $0, %eax
+	je     .B2
+	# start compound statement
+	# push -44(%rbp)
+	movl   -20(%rbp), %eax
+	movl   %eax, -44(%rbp)
+	# (pop and) add
+	movl   -44(%rbp), %eax
 	movl   $3, %ebx
 	addl   %ebx, %eax
-	movl   %eax, -36(%rbp)
-	# push -40(%rbp)
-	movl   -28(%rbp), %eax
-	movl   %eax, -40(%rbp)
+	movl   %eax, -44(%rbp)
+	movl   -44(%rbp), %eax
+	# end compound statement
+	jmp    .E2
+.B2:
+	# start compound statement
+	# push -44(%rbp)
+	movl   -20(%rbp), %eax
+	movl   %eax, -44(%rbp)
 	# (pop and) add
-	movl   -36(%rbp), %eax
-	movl   -40(%rbp), %ebx
+	movl   -44(%rbp), %eax
+	movl   $3, %ebx
 	addl   %ebx, %eax
-	movl   %eax, -36(%rbp)
-	movl   -36(%rbp), %eax
+	movl   %eax, -44(%rbp)
+	# push -48(%rbp)
+	movl   -28(%rbp), %eax
+	movl   %eax, -48(%rbp)
+	# (pop and) add
+	movl   -44(%rbp), %eax
+	movl   -48(%rbp), %ebx
+	addl   %ebx, %eax
+	movl   %eax, -44(%rbp)
+	movl   -44(%rbp), %eax
+	# end compound statement
+.E2:
 	# end compound statement
 	addq   $48, %rsp
 	popq   %rbp

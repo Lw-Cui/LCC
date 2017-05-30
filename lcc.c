@@ -291,6 +291,7 @@ void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack)
     ));
 }
 
+
 void set_Label(Label *p) {
     p->beg_label++;
     p->end_label++;
@@ -306,4 +307,9 @@ String *get_end_label(Label *p) {
 
 void free_variables(Stack *stack, Symbol *symbol) {
     stack->offset -= real_size[symbol->self_type];
+}
+
+void emit_jump(Assembly *code, String *label) {
+    assembly_push_back(code, sprint("\tjmp    %s",
+                                    str(label)));
 }

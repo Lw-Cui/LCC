@@ -11,6 +11,10 @@ int main(int count) {
             v5 = v5 + 1;    // v5 = 1
         int tmp = 0;
     }
-    return v4 + 3 + v5;     // 8
+    if (v4 != 4) {
+        return v4 + 3;       // 7
+    } else {
+        return v4 + 3 + v5;  // 8
+    }
 }
 

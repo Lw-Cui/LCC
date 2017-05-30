@@ -310,3 +310,11 @@ void emit_jump(Assembly *code, String *label) {
     assembly_push_back(code, sprint("\tjmp    %s",
                                     str(label)));
 }
+
+void add_while_label(Symbol *cond, Analysis *stat) {
+    set_Label(&label);
+    assembly_push_front(cond->assembly, append_char(get_beg_label(&label), ':'));
+    pop_and_je(cond->assembly, &cond->res_info, get_end_label(&label), &get_top_scope(symtab)->stack_info);
+    emit_jump(stat->assembly, get_beg_label(&label));
+    assembly_push_back(stat->assembly, append_char(get_end_label(&label), ':'));
+}

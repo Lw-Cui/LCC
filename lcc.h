@@ -104,6 +104,7 @@ typedef struct Stack {
 } Stack;
 
 int allocate_stack(Stack *, int, Assembly *);
+
 int allocate_stack(Stack *, int, Assembly *);
 
 void free_stack(Stack *, int);
@@ -173,6 +174,8 @@ void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx);
 void emit_func_arguments(Assembly *code, Analysis *func);
 
 void emit_local_variable(Assembly *code, Symbol *s);
+
+void add_while_label(Symbol *cond, Analysis *stat);
 
 Symbol *symbol_cast(void *);
 

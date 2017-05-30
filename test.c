@@ -14,8 +14,12 @@ int main(int count) {
     if (v4 != 4) {
         return v4 + 3;       // 7
     } else {
-        if (v5 != 1)
-            return v4 + 3 + v5;// 8
+        while (v4 != 0) {
+            v5 = v5 + 2;
+            v4 = v4 - 1;
+        }
+        if (v5 == 9)
+            return v4 + 3 + v5;// 12
         else return 0;
     }
 }

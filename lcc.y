@@ -682,7 +682,11 @@ selection_statement
 	;
 
 iteration_statement
-	: WHILE '(' expression ')' statement
+	: WHILE '(' expression ')' statement {
+        add_while_label(&$3, &$5);
+	    assembly_append($3.assembly, $5.assembly);
+	    $$.assembly = $3.assembly;
+	}
 	| DO statement WHILE '(' expression ')' ';'
 	| FOR '(' expression_statement expression_statement ')' statement
 	| FOR '(' expression_statement expression_statement expression ')' statement

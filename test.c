@@ -6,8 +6,11 @@ int main(int count) {
     int v4 = v3 >> 2;       //
     v4 = v4 << 1;           // v4 = 4
     int v5 = v1 <= 7;
-    if (v4 < 0)
-        v5 = v5 + 1;        // v5 = 1
+    {
+        if (v4 < 0)
+            v5 = v5 + 1;    // v5 = 1
+        int tmp = 0;
+    }
     return v4 + 3 + v5;     // 8
 }
 

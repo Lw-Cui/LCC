@@ -107,6 +107,7 @@ int allocate_stack(Stack *, int, Assembly *);
 
 void free_stack(Stack *, int);
 
+
 typedef struct Value {
     int index;
     int int_num;
@@ -147,6 +148,8 @@ typedef struct Analysis {
 } Analysis;
 
 typedef Analysis Symbol;
+
+void free_variables(Stack *, Symbol *);
 
 void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack);
 

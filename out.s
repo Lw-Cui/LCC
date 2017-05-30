@@ -6,6 +6,7 @@ main:
 	subq   $16, %rsp
 	# passing count 4 byte(s) -4(%rbp)
 	movl   %edi, -4(%rbp)
+	# start compound statement
 	# push -8(%rbp)
 	movl   -4(%rbp), %eax
 	movl   %eax, -8(%rbp)
@@ -92,6 +93,7 @@ main:
 	movl   -28(%rbp), %eax
 	# allocate v5 4 byte(s) -28(%rbp)
 	movl   %eax, -28(%rbp)
+	# start compound statement
 	# push -32(%rbp)
 	movl   -20(%rbp), %eax
 	movl   %eax, -32(%rbp)
@@ -121,6 +123,9 @@ main:
 	# assign
 	movl   %eax, -28(%rbp)
 .E1:
+	# allocate tmp 4 byte(s) -36(%rbp)
+	movl   $0, -36(%rbp)
+	# end compound statement
 	# push -36(%rbp)
 	movl   -20(%rbp), %eax
 	movl   %eax, -36(%rbp)
@@ -138,6 +143,7 @@ main:
 	addl   %ebx, %eax
 	movl   %eax, -36(%rbp)
 	movl   -36(%rbp), %eax
+	# end compound statement
 	addq   $48, %rsp
 	popq   %rbp
 	ret

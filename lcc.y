@@ -610,22 +610,28 @@ labeled_statement
 compound_statement
 	: left_brace right_brace
 	| left_brace block_item_list right_brace {
-	    $$.assembly = $2.assembly;
+	    assembly_append($1.assembly, $2.assembly);
+	    $$.assembly = $1.assembly;
+        assembly_push_back($$.assembly, sprint("\t# end compound statement"));
+        Stack *func_stack = &get_top_scope(symtab)->stack_info;
+        while (symtab->self_type != NEW_SCOPE) {
+            free_variables(func_stack, symtab);
+            symtab = symtab->parent;
+        }
+        symtab = symtab->parent;
 	}
 	;
 
 left_brace
     : LEFT_BRACE {
+        if (!$$.assembly) $$.assembly = make_assembly();
+        assembly_push_back($$.assembly, sprint("\t# start compound statement"));
         symtab = make_new_scope(symtab);
     }
     ;
 
 right_brace
-    : RIGHT_BRACE {
-        while (symtab->self_type != NEW_SCOPE) symtab = symtab->parent;
-        // TODO: release resource
-        symtab = symtab->parent;
-    }
+    : RIGHT_BRACE
     ;
 
 block_item_list

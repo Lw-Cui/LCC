@@ -303,3 +303,7 @@ String *get_beg_label(Label *p) {
 String *get_end_label(Label *p) {
     return sprint(".E%d", p->end_label);
 }
+
+void free_variables(Stack *stack, Symbol *symbol) {
+    stack->offset -= real_size[symbol->self_type];
+}

@@ -204,7 +204,7 @@ relational_expression
 	| relational_expression GE_OP shift_expression {
         Stack *func_stack;
 	    POP_AND_OP(pop_and_double_op, "cmp");
-	    POP_AND_OP(pop_and_set, "setg");
+	    POP_AND_OP(pop_and_set, "setge");
     }
 	;
 
@@ -656,7 +656,10 @@ block_item
 	;
 
 expression_statement
-	: ';'
+	: ';' {
+	    // TODO: add some behavior when acting condition
+	    $$.assembly = make_assembly();
+	}
 	| expression ';'
 	;
 
@@ -688,10 +691,27 @@ iteration_statement
 	    $$.assembly = $3.assembly;
 	}
 	| DO statement WHILE '(' expression ')' ';'
-	| FOR '(' expression_statement expression_statement ')' statement
-	| FOR '(' expression_statement expression_statement expression ')' statement
-	| FOR '(' declaration expression_statement ')' statement
-	| FOR '(' declaration expression_statement expression ')' statement
+	| FOR '(' expression_statement expression_statement ')' statement {
+	    // for (i = 5; i < 4;) i++;
+	}
+	| FOR '(' expression_statement expression_statement expression ')' statement {
+	    // for (i = 5; i < 4; i++) i++;
+	}
+	| FOR '(' declaration expression_statement ')' statement {
+	    // for (int i = 5; i < 4;) i++;
+        add_while_label(&$4, &$6);
+	    assembly_append($4.assembly, $6.assembly);
+	    assembly_append($3.assembly, $4.assembly);
+	    $$.assembly = $3.assembly;
+	}
+	| FOR '(' declaration expression_statement expression ')' statement {
+	    // for (int i = 5; i < 4; i++) i++;
+	    assembly_append($7.assembly, $5.assembly);
+        add_while_label(&$4, &$7);
+	    assembly_append($4.assembly, $7.assembly);
+	    assembly_append($3.assembly, $4.assembly);
+	    $$.assembly = $3.assembly;
+	}
 	;
 
 jump_statement

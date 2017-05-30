@@ -3,9 +3,9 @@
 main:
 	pushq  %rbp
 	movq   %rsp, %rbp
-	subq   $16, %rsp
 	# passing count 4 byte(s) -4(%rbp)
 	movl   %edi, -4(%rbp)
+	subq   $64, %rsp
 	# start compound statement
 	# push -8(%rbp)
 	movl   -4(%rbp), %eax
@@ -36,7 +36,6 @@ main:
 	movl   %eax, -12(%rbp)
 	# allocate v3 4 byte(s) -16(%rbp)
 	movl   $0, -16(%rbp)
-	subq   $16, %rsp
 	# push -20(%rbp)
 	movl   -8(%rbp), %eax
 	movl   %eax, -20(%rbp)
@@ -105,7 +104,6 @@ main:
 	# setl
 	setl   %al
 	movzbl %al, %eax
-	subq   $16, %rsp
 	movl   %eax, -36(%rbp)
 	# pop, cmp and je
 	movl   -36(%rbp), %eax
@@ -141,7 +139,7 @@ main:
 	# pop, cmp and je
 	movl   -40(%rbp), %eax
 	cmpl   $0, %eax
-	je     .B2
+	je     .B3
 	# start compound statement
 	# push -44(%rbp)
 	movl   -20(%rbp), %eax
@@ -152,31 +150,55 @@ main:
 	addl   %ebx, %eax
 	movl   %eax, -44(%rbp)
 	movl   -44(%rbp), %eax
+	jmp    .L0
 	# end compound statement
+	jmp    .E3
+.B3:
+	# start compound statement
+	# push -44(%rbp)
+	movl   -28(%rbp), %eax
+	movl   %eax, -44(%rbp)
+	# (pop and) cmp
+	movl   -44(%rbp), %eax
+	movl   $1, %ebx
+	cmpl   %ebx, %eax
+	movl   %eax, -44(%rbp)
+	# setne
+	setne   %al
+	movzbl %al, %eax
+	movl   %eax, -48(%rbp)
+	# pop, cmp and je
+	movl   -48(%rbp), %eax
+	cmpl   $0, %eax
+	je     .B2
+	# push -52(%rbp)
+	movl   -20(%rbp), %eax
+	movl   %eax, -52(%rbp)
+	# (pop and) add
+	movl   -52(%rbp), %eax
+	movl   $3, %ebx
+	addl   %ebx, %eax
+	movl   %eax, -52(%rbp)
+	# push -56(%rbp)
+	movl   -28(%rbp), %eax
+	movl   %eax, -56(%rbp)
+	# (pop and) add
+	movl   -52(%rbp), %eax
+	movl   -56(%rbp), %ebx
+	addl   %ebx, %eax
+	movl   %eax, -52(%rbp)
+	movl   -52(%rbp), %eax
+	jmp    .L0
 	jmp    .E2
 .B2:
-	# start compound statement
-	# push -44(%rbp)
-	movl   -20(%rbp), %eax
-	movl   %eax, -44(%rbp)
-	# (pop and) add
-	movl   -44(%rbp), %eax
-	movl   $3, %ebx
-	addl   %ebx, %eax
-	movl   %eax, -44(%rbp)
-	# push -48(%rbp)
-	movl   -28(%rbp), %eax
-	movl   %eax, -48(%rbp)
-	# (pop and) add
-	movl   -44(%rbp), %eax
-	movl   -48(%rbp), %ebx
-	addl   %ebx, %eax
-	movl   %eax, -44(%rbp)
-	movl   -44(%rbp), %eax
-	# end compound statement
+	movl   $0, %eax
+	jmp    .L0
 .E2:
 	# end compound statement
-	addq   $48, %rsp
+.E3:
+	# end compound statement
+.L0:
+	addq   $64, %rsp
 	popq   %rbp
 	ret
 

@@ -104,6 +104,7 @@ typedef struct Stack {
 } Stack;
 
 int allocate_stack(Stack *, int, Assembly *);
+int allocate_stack(Stack *, int, Assembly *);
 
 void free_stack(Stack *, int);
 

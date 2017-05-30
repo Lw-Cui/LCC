@@ -698,6 +698,7 @@ jump_statement
 	| RETURN expression ';' {
 	    $$ = $2;
 	    emit_pop($$.assembly, &$2.res_info, &get_top_scope(symtab)->stack_info, 0);
+	    emit_jump($$.assembly, make_string(".L0"));
     }
 	;
 
@@ -717,8 +718,10 @@ external_declaration
 
 function_definition
 	: function_definition_header compound_statement {
+	    assembly_push_front($2.assembly, sprint("\tsubq   $%d, %%rsp", get_top_scope(symtab)->stack_info.rsp));
 	    assembly_append($1.assembly, $2.assembly);
 	    $$ = $1;
+        assembly_push_back($$.assembly, make_string(".L0:"));
         assembly_push_back($$.assembly, sprint("\taddq   $%d, %%rsp", get_top_scope(symtab)->stack_info.rsp));
         assembly_push_back($$.assembly, make_string("\tpopq   %rbp"));
         assembly_push_back($$.assembly, make_string("\tret\n"));

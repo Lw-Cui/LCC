@@ -139,10 +139,7 @@ Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol
 int allocate_stack(Stack *stack_info, int bytes, Assembly *code) {
     for (int i = 0; i < bytes; i++)
         if ((stack_info->offset + i + bytes) % bytes == 0) {
-            int ori = stack_info->rsp;
             while (stack_info->offset + i + bytes > stack_info->rsp) stack_info->rsp += 16;
-            if (stack_info->rsp > ori)
-                assembly_push_back(code, sprint("\tsubq   $%d, %%rsp", stack_info->rsp - ori));
             return stack_info->offset += i + bytes;
         }
     return 0xFFFF;

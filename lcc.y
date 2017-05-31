@@ -6,18 +6,28 @@
 #include <string.h>
 #include <zconf.h>
 #include "lcc.h"
+
 /*
  *  assembly_append($1.assembly, $3.assembly);
  *  $$ = $1;
- *  Stack *func_stack = &get_top_scope(symtab)->stack_info;
- *  set_stack_offset($$.res_info, op($$.assembly, $1.res_info, inst, $3.res_info, func_stack);
+ */
+#define APPEND_ASSEMBLY()\
+        assembly_append((yyvsp[(1) - (3)]).assembly, (yyvsp[(3) - (3)]).assembly);\
+        (yyval) = (yyvsp[(1) - (3)]);\
+
+/*
+ *  set_stack_info(
+ *      $$.res_info,
+ *      op($$.assembly, $1.res_info, inst, $3.res_info, &get_top_scope(symtab)->stack_info),
+ *      max_type);
  */
 #define POP_AND_OP(op, inst)\
-        assembly_append((yyvsp[(1) - (3)]).assembly, (yyvsp[(3) - (3)]).assembly);\
-	    (yyval) = (yyvsp[(1) - (3)]);\
-        func_stack = &get_top_scope(symtab)->stack_info;\
-        set_stack_offset(&(yyval).res_info, \
-            op((yyval).assembly, &(yyvsp[(1) - (3)]).res_info, inst, &(yyvsp[(3) - (3)]).res_info, func_stack));
+        set_value_info(\
+            &(yyval).res_info, \
+            op((yyval).assembly, &(yyvsp[(1) - (3)]).res_info, inst, &(yyvsp[(3) - (3)]).res_info,\
+                 &get_top_scope(symtab)->stack_info),\
+            max(get_type_size(&(yyvsp[(1) - (3)]).res_info),\
+                 get_type_size(&(yyvsp[(3) - (3)]).res_info)));
 
 extern Symbol *symtab;
 extern Label label;
@@ -60,7 +70,7 @@ primary_expression
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    Symbol *var = find_name(symtab, $1.name);
 	    if (var == NULL) yyerror("%s hasn't been defined.", str(var->name));
-	    set_stack_offset(&$$.res_info, var->stack_info.offset);
+	    set_value_info(&$$.res_info, var->stack_info.offset, (Type_size)var->self_type);
 	}
 	| constant {
 	    // res_info has been set in lexx.l
@@ -150,11 +160,11 @@ cast_expression
 multiplicative_expression
 	: cast_expression
 	| multiplicative_expression '*' cast_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_single_op, "mul");
 	}
 	| multiplicative_expression '/' cast_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_single_op, "div");
 	}
 	| multiplicative_expression '%' cast_expression
@@ -163,11 +173,11 @@ multiplicative_expression
 additive_expression
 	: multiplicative_expression
 	| additive_expression '+' multiplicative_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_double_op, "add");
 	}
 	| additive_expression '-' multiplicative_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_double_op, "sub");
 	}
 	;
@@ -175,34 +185,36 @@ additive_expression
 shift_expression
 	: additive_expression
 	| shift_expression LEFT_OP additive_expression {
-        Stack *func_stack;
-	    POP_AND_OP(pop_and_shift, "sal");
+        APPEND_ASSEMBLY();
+	    $3.res_info.size = BYTE;
+        POP_AND_OP(pop_and_shift, "sal");
 	}
 	| shift_expression RIGHT_OP additive_expression {
-        Stack *func_stack;
-	    POP_AND_OP(pop_and_shift, "sar");
+        APPEND_ASSEMBLY();
+	    $3.res_info.size = BYTE;
+        POP_AND_OP(pop_and_shift, "sar");
 	}
 	;
 
 relational_expression
 	: shift_expression
 	| relational_expression '<' shift_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setl");
 	}
 	| relational_expression '>' shift_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setg");
     }
 	| relational_expression LE_OP shift_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setle");
 	}
 	| relational_expression GE_OP shift_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setge");
     }
@@ -211,12 +223,12 @@ relational_expression
 equality_expression
 	: relational_expression
 	| equality_expression EQ_OP relational_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "sete");
 	}
 	| equality_expression NE_OP relational_expression {
-        Stack *func_stack;
+        APPEND_ASSEMBLY();
 	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setne");
 	}
@@ -262,8 +274,8 @@ assignment_expression
         emit_pop($$.assembly, &$3.res_info, func_stack, 0);
         assembly_push_back($$.assembly, sprint("\t# assign"));
         assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, %d(%%rbp)",
-                                    op_suffix[LONG_WORD],
-                                    reg[0][LONG_WORD],
+                                    op_suffix[get_type_size(&$1.res_info)],
+                                    reg[0][get_type_size(&$1.res_info)],
                                     -get_stack_offset(&$1.res_info)));
 	}
 	;

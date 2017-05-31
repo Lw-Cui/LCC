@@ -3,6 +3,17 @@
 
 #include "ADT.h"
 
+#define max(a, b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
+#define min(a, b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a < _b ? _a : _b; })
+
+
 typedef enum Type_size {
     BYTE,
     WORD,
@@ -114,6 +125,7 @@ typedef struct Value {
     int index;
     int int_num;
     int offset;
+    Type_size size;
 } Value;
 
 int has_constant(Value *);
@@ -124,7 +136,9 @@ int get_constant(Value *);
 
 int has_stack_offset(Value *);
 
-void set_stack_offset(Value *, int offset);
+void set_value_info(Value *, int offset, Type_size size);
+
+Type_size get_type_size(Value *);
 
 int get_stack_offset(Value *);
 
@@ -153,6 +167,8 @@ typedef Analysis Symbol;
 
 void free_variables(Stack *, Symbol *);
 
+void zero_extend(Assembly *code, int idx, Type_size original, Type_size new);
+
 void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack);
 
 int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *);
@@ -167,7 +183,7 @@ void emit_jump(Assembly *code, String *label);
 
 void emit_push_var(Assembly *code, Value *res_info, Stack *func_info);
 
-int emit_push_register(Assembly *code, size_t idx, Stack *func_info);
+int emit_push_register(Assembly *code, size_t idx, Type_size size, Stack *func_info);
 
 void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx);
 

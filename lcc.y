@@ -223,22 +223,18 @@ relational_expression
 	: shift_expression
 	| relational_expression '<' shift_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setl");
 	}
 	| relational_expression '>' shift_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setg");
     }
 	| relational_expression LE_OP shift_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setle");
 	}
 	| relational_expression GE_OP shift_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setge");
     }
 	;
@@ -247,12 +243,10 @@ equality_expression
 	: relational_expression
 	| equality_expression EQ_OP relational_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "sete");
 	}
 	| equality_expression NE_OP relational_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_double_op, "cmp");
 	    POP_AND_OP(pop_and_set, "setne");
 	}
 	;
@@ -742,6 +736,7 @@ iteration_statement
 	}
 	| FOR '(' declaration expression_statement expression ')' statement {
 	    // for (int i = 5; i < 4; i++) i++;
+	    // TODO: free resource
 	    assembly_append($7.assembly, $5.assembly);
         add_while_label(&$4, &$7);
 	    assembly_append($4.assembly, $7.assembly);

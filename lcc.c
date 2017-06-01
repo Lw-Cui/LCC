@@ -280,6 +280,17 @@ void zero_extend(Assembly *code, int idx, Type_size original, Type_size new) {
 }
 
 int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_stack) {
+    assembly_push_back(code, sprint("\t# (pop and) cmp"));
+    emit_pop(code, op1, func_stack, 0);
+    emit_pop(code, op2, func_stack, 1);
+    Type_size max_type = max(get_type_size(op1), get_type_size(op2));
+    zero_extend(code, 0, get_type_size(op1), max_type);
+    zero_extend(code, 1, get_type_size(op2), max_type);
+    assembly_push_back(code, sprint("\tcmp%c   %%%s, %%%s",
+                                    op_suffix[max_type],
+                                    reg[1][max_type],
+                                    reg[0][max_type]
+    ));
     assembly_push_back(code, sprint("\t# %s", op));
     assembly_push_back(code, sprint("\t%s   %%%s",
                                     op,

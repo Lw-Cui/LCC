@@ -114,7 +114,9 @@ postfix_expression
 	: primary_expression
 	| postfix_expression '[' expression ']'
 	| postfix_expression '(' ')'
-	| postfix_expression '(' argument_expression_list ')'
+	| postfix_expression '(' argument_expression_list ')' {
+	    // TODO: call function and return result
+	}
 	| postfix_expression '.' IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
@@ -124,8 +126,14 @@ postfix_expression
 	;
 
 argument_expression_list
-	: assignment_expression
-	| argument_expression_list ',' assignment_expression
+	: assignment_expression {
+	    // first (actual) argument, different from 'parameter_list' used in function declaration
+        if ($$.param == NULL) $$.param = make_vector();
+        push_back($$.param, clone_value(&$1.res_info));
+	}
+	| argument_expression_list ',' assignment_expression {
+        push_back($$.param, clone_value(&$2.res_info));
+	}
 	;
 
 unary_expression
@@ -520,6 +528,7 @@ parameter_type_list
 parameter_list
 	: parameter_declaration
 	| parameter_list ',' parameter_declaration {
+	    // different from 'argument_expression_list' which used by function invoke
 	    $$.param = $1.param;
 	    push_back($$.param, back($3.param));
 	}
@@ -527,14 +536,14 @@ parameter_list
 
 parameter_declaration
 	: declaration_specifiers declarator {
-	    // single function parameter
+	    // function parameter with name
         if ($$.param == NULL) $$.param = make_vector();
         Symbol *var = make_param_symbol($1.self_type, $2.name);
         push_back($$.param, var);
     }
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers {
-	    // function parameter
+	    // function parameter without name
         if ($$.param == NULL) $$.param = make_vector();
         push_back($$.param, malloc(sizeof(Symbol)));
         symbol_cast(back($$.param))->self_type = $1.self_type;
@@ -669,7 +678,7 @@ block_item
 
 expression_statement
 	: ';' {
-	    // TODO: add some behavior when acting condition
+	    // TODO: add some behavior when acting condition: for (;;)
 	    $$.assembly = make_assembly();
 	}
 	| expression ';'
@@ -677,7 +686,7 @@ expression_statement
 
 selection_statement
 	: IF '(' expression ')' statement ELSE statement {
-        set_Label(&label);
+         set_control_label(&label);
 	    pop_and_je($3.assembly, &$3.res_info, get_beg_label(&label), &get_top_scope(symtab)->stack_info);
         assembly_push_front($7.assembly, append_char(get_beg_label(&label), ':'));
         assembly_push_back($7.assembly, append_char(get_end_label(&label), ':'));
@@ -687,7 +696,7 @@ selection_statement
 	    $$.assembly = $3.assembly;
 	}
 	| IF '(' expression ')' statement {
-        set_Label(&label);
+        set_control_label(&label);
 	    pop_and_je($3.assembly, &$3.res_info, get_end_label(&label), &get_top_scope(symtab)->stack_info);
         assembly_push_back($5.assembly, append_char(get_end_label(&label), ':'));
 	    assembly_append($3.assembly, $5.assembly);
@@ -734,7 +743,7 @@ jump_statement
 	| RETURN expression ';' {
 	    $$ = $2;
 	    emit_pop($$.assembly, &$2.res_info, &get_top_scope(symtab)->stack_info, 0);
-	    emit_jump($$.assembly, make_string(".L0"));
+	    emit_jump($$.assembly, get_exit_label(&label));
     }
 	;
 
@@ -757,7 +766,10 @@ function_definition
 	    assembly_push_front($2.assembly, sprint("\tsubq   $%d, %%rsp", get_top_scope(symtab)->stack_info.rsp));
 	    assembly_append($1.assembly, $2.assembly);
 	    $$ = $1;
-        assembly_push_back($$.assembly, make_string(".L0:"));
+	    // Important: 'return' maybe occurred anywhere
+        assembly_push_back($$.assembly, append_char(get_exit_label(&label), ':'));
+        // for next usage
+	    set_exit_label(&label);
         assembly_push_back($$.assembly, sprint("\taddq   $%d, %%rsp", get_top_scope(symtab)->stack_info.rsp));
         assembly_push_back($$.assembly, make_string("\tpopq   %rbp"));
         assembly_push_back($$.assembly, make_string("\tret\n"));

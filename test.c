@@ -1,3 +1,7 @@
+int foo(char a, int b) {
+    return a - b;
+}
+
 int main(int count) {
     int v1 = 6 + 1 * count; // v1 = 7
     char v2 = v1 - 5;        // v2 = 2

@@ -1,3 +1,34 @@
+	.globl foo
+	.type  foo, @function
+foo:
+	pushq  %rbp
+	movq   %rsp, %rbp
+	# passing a 1 byte(s) -1(%rbp)
+	movb   %dil, -1(%rbp)
+	# passing b 4 byte(s) -8(%rbp)
+	movl   %esi, -8(%rbp)
+	subq   $16, %rsp
+	# start compound statement
+	# push -9(%rbp)
+	movb   -1(%rbp), %al
+	movb   %al, -9(%rbp)
+	# push -16(%rbp)
+	movl   -8(%rbp), %eax
+	movl   %eax, -16(%rbp)
+	# (pop and) sub
+	movb   -9(%rbp), %al
+	movl   -16(%rbp), %ebx
+	movzbl %al, %eax
+	subl   %ebx, %eax
+	movl   %eax, -16(%rbp)
+	movl   -16(%rbp), %eax
+	jmp    .F0
+	# end compound statement
+.F0:
+	addq   $16, %rsp
+	popq   %rbp
+	ret
+
 	.globl main
 	.type  main, @function
 main:
@@ -244,7 +275,7 @@ main:
 	addl   %ebx, %eax
 	movl   %eax, -56(%rbp)
 	movl   -56(%rbp), %eax
-	jmp    .L0
+	jmp    .F1
 	# end compound statement
 	jmp    .E6
 .B6:
@@ -334,16 +365,16 @@ main:
 	addl   %ebx, %eax
 	movl   %eax, -68(%rbp)
 	movl   -68(%rbp), %eax
-	jmp    .L0
+	jmp    .F1
 	jmp    .E5
 .B5:
 	movl   $0, %eax
-	jmp    .L0
+	jmp    .F1
 .E5:
 	# end compound statement
 .E6:
 	# end compound statement
-.L0:
+.F1:
 	addq   $80, %rsp
 	popq   %rbp
 	ret

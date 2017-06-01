@@ -124,8 +124,6 @@ void emit_local_variable(Assembly *code, Symbol *s) {
                                         reg[0][s->self_type],
                                         -s->stack_info.offset));
     }
-    // after init, res_info should be set as the same as stack_info
-    // set_value_info(&s->res_info, s->stack_info.offset, (Type_size) s->self_type);
 }
 
 Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
@@ -141,6 +139,7 @@ Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol
 int allocate_stack(Stack *stack_info, int bytes, Assembly *code) {
     for (int i = 0; i < bytes; i++)
         if ((stack_info->offset + i + bytes) % bytes == 0) {
+            // rsp only could be increased
             while (stack_info->offset + i + bytes > stack_info->rsp) stack_info->rsp += 16;
             return stack_info->offset += i + bytes;
         }
@@ -304,7 +303,7 @@ void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack)
 }
 
 
-void set_Label(Label *p) {
+void set_control_label(Label *p) {
     p->beg_label++;
     p->end_label++;
 }
@@ -327,7 +326,7 @@ void emit_jump(Assembly *code, String *label) {
 }
 
 void add_while_label(Symbol *cond, Analysis *stat) {
-    set_Label(&label);
+    set_control_label(&label);
     assembly_push_front(cond->assembly, append_char(get_beg_label(&label), ':'));
     pop_and_je(cond->assembly, &cond->res_info, get_end_label(&label), &get_top_scope(symtab)->stack_info);
     emit_jump(stat->assembly, get_beg_label(&label));
@@ -336,4 +335,36 @@ void add_while_label(Symbol *cond, Analysis *stat) {
 
 Type_size get_type_size(Value *p) {
     return p->size;
+}
+
+Value *make_constant_val(int val) {
+    Value *ptr = (Value *) malloc(sizeof(Value));
+    ptr->index = 2;
+    ptr->int_num = val;
+    return ptr;
+}
+
+Value *make_stack_val(int offset, Type_size size) {
+    Value *ptr = (Value *) malloc(sizeof(Value));
+    ptr->index = 1;
+    ptr->offset = offset;
+    ptr->size = size;
+    return ptr;
+}
+
+Value *clone_value(Value *bak) {
+    Value *ptr = (Value *) malloc(sizeof(Value));
+    ptr->index = bak->index;
+    ptr->offset = bak->offset;
+    ptr->size = bak->size;
+    ptr->int_num = bak->int_num;
+    return ptr;
+}
+
+void set_exit_label(Label *p) {
+    p->exit_label++;
+}
+
+String *get_exit_label(Label *p) {
+    return sprint(".F%d", p->exit_label);
 }

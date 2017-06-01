@@ -122,11 +122,22 @@ void free_stack(Stack *, int);
 
 
 typedef struct Value {
+    // 1: tmp var on stack 2: constant
     int index;
+
+    // for constant
     int int_num;
+
+    // for tmp var
     int offset;
     Type_size size;
 } Value;
+
+Value *make_constant_val(int val);
+
+Value *make_stack_val(int offset, Type_size size);
+
+Value *clone_value(Value *);
 
 int has_constant(Value *);
 
@@ -145,22 +156,38 @@ int get_stack_offset(Value *);
 typedef struct Label {
     int beg_label;
     int end_label;
+    int exit_label;
 } Label;
 
-void set_Label(Label *);
+void set_control_label(Label *);
+
+void set_exit_label(Label *);
 
 String *get_beg_label(Label *);
 
 String *get_end_label(Label *);
 
+String *get_exit_label(Label *);
+
 typedef struct Analysis {
-    struct Analysis *parent;
-    Type self_type, ret_type;
     String *name;
-    Stack stack_info;
-    Value res_info;
-    Vector *param;
+    Type self_type;
+
+    // for code-generated
     Assembly *assembly;
+
+    // for scope
+    struct Analysis *parent;
+
+    // for function
+    Type ret_type;
+    Vector *param;
+
+    // for variable
+    Stack stack_info;
+
+    // for tmp var
+    Value res_info;
 } Analysis;
 
 typedef Analysis Symbol;

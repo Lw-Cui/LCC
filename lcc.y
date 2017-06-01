@@ -7,6 +7,7 @@
 #include <zconf.h>
 #include "lcc.h"
 
+#define TOP_STACK &get_top_scope(symtab)->stack_info
 /*
  *  assembly_append($1.assembly, $3.assembly);
  *  $$ = $1;
@@ -120,7 +121,6 @@ postfix_expression
 	| postfix_expression '(' argument_expression_list ')' {
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    assembly_append($$.assembly, $3.assembly);
-	    // TODO: free resource
 	    emit_set_func_arguments($$.assembly, &$3);
         assembly_push_back($$.assembly, sprint("\tcall   %s", str($1.name)));
         set_value_info(
@@ -128,6 +128,7 @@ postfix_expression
             emit_push_register($$.assembly, 0, (Type_size)$1.ret_type, &get_top_scope(symtab)->stack_info),
             (Type_size)$1.ret_type
         );
+        $$.self_type = FUNC_CALL;
 	}
 	| postfix_expression '.' IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
@@ -174,7 +175,7 @@ cast_expression
 	: unary_expression {
 	    /* avoid pushing `a` into stack when parsing `a = b;` */
 	    if (!$$.assembly) $$.assembly = make_assembly();
-        emit_push_var($$.assembly, &$1.res_info, &get_top_scope(symtab)->stack_info);
+        if ($1.self_type != FUNC_CALL) emit_push_var($$.assembly, &$1.res_info, &get_top_scope(symtab)->stack_info);
         $$.res_info = $1.res_info;
 	}
 	| '(' type_name ')' cast_expression
@@ -340,6 +341,8 @@ declaration
             // $2.assembly stores initialization result, so should be appended firstly
             assembly_append($$.assembly, $2.assembly);
             emit_local_variable($$.assembly, symtab);
+            // free for-loop var
+            $$.name = symtab->name;
 	    }
 	}
 	| static_assert_declaration
@@ -695,21 +698,22 @@ expression_statement
 
 selection_statement
 	: IF '(' expression ')' statement ELSE statement {
-         set_control_label(&label);
-	    pop_and_je($3.assembly, &$3.res_info, get_beg_label(&label), &get_top_scope(symtab)->stack_info);
+        set_control_label(&label);
+        // just pop. The top of stack is useless.
+        pop_and_je($3.assembly, &$3.res_info, get_beg_label(&label), &get_top_scope(symtab)->stack_info);
         assembly_push_front($7.assembly, append_char(get_beg_label(&label), ':'));
         assembly_push_back($7.assembly, append_char(get_end_label(&label), ':'));
         emit_jump($5.assembly, get_end_label(&label));
-	    assembly_append($5.assembly, $7.assembly);
-	    assembly_append($3.assembly, $5.assembly);
-	    $$.assembly = $3.assembly;
+        assembly_append($5.assembly, $7.assembly);
+        assembly_append($3.assembly, $5.assembly);
+        $$.assembly = $3.assembly;
 	}
 	| IF '(' expression ')' statement {
         set_control_label(&label);
-	    pop_and_je($3.assembly, &$3.res_info, get_end_label(&label), &get_top_scope(symtab)->stack_info);
+        pop_and_je($3.assembly, &$3.res_info, get_end_label(&label), &get_top_scope(symtab)->stack_info);
         assembly_push_back($5.assembly, append_char(get_end_label(&label), ':'));
-	    assembly_append($3.assembly, $5.assembly);
-	    $$.assembly = $3.assembly;
+        assembly_append($3.assembly, $5.assembly);
+        $$.assembly = $3.assembly;
 	}
 	| SWITCH '(' expression ')' statement
 	;
@@ -733,15 +737,16 @@ iteration_statement
 	    assembly_append($4.assembly, $6.assembly);
 	    assembly_append($3.assembly, $4.assembly);
 	    $$.assembly = $3.assembly;
+	    free_variables(TOP_STACK, find_name(symtab, $3.name));
 	}
 	| FOR '(' declaration expression_statement expression ')' statement {
 	    // for (int i = 5; i < 4; i++) i++;
-	    // TODO: free resource
 	    assembly_append($7.assembly, $5.assembly);
         add_while_label(&$4, &$7);
 	    assembly_append($4.assembly, $7.assembly);
 	    assembly_append($3.assembly, $4.assembly);
 	    $$.assembly = $3.assembly;
+	    free_variables(TOP_STACK, find_name(symtab, $3.name));
 	}
 	;
 
@@ -791,7 +796,7 @@ function_definition
 function_definition_header
     : declaration_specifiers declarator declaration_list
     | declaration_specifiers declarator {
-        // To support recursion
+        // To support recursion and symtab search
         Symbol *decl = make_func_decl_symbol($1.self_type, $2.name, $2.param, symtab);
 	    symtab = make_func_def_symbol($1.self_type, $2.name, $2.param, decl);
 	    if (!$$.assembly) $$.assembly = make_assembly();

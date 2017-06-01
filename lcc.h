@@ -25,7 +25,8 @@ typedef enum Type {
     DCHAR = BYTE,
     DINT = LONG_WORD,
     DFUNC,          // function definition
-    DFUNC_NAME,     // function declaration
+    FUNC_DECL,     // function declaration
+    FUNC_CALL,
     NEW_SCOPE,      // new scope, e.g. function, for, while, if
     NOT_KNOWN,
 } Type;

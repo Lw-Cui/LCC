@@ -127,7 +127,7 @@ void emit_local_variable(Assembly *code, Symbol *s) {
 
 Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
     Symbol *decl = symbol_cast(malloc(sizeof(Symbol)));
-    decl->self_type = DFUNC_NAME;
+    decl->self_type = FUNC_DECL;
     decl->ret_type = ret_type;
     decl->name = name;
     decl->param = param;
@@ -280,7 +280,7 @@ void zero_extend(Assembly *code, int idx, Type_size original, Type_size new) {
 }
 
 int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_stack) {
-    assembly_push_back(code, sprint("\t# (pop and) cmp"));
+    assembly_push_back(code, sprint("\t# (pop and) set"));
     emit_pop(code, op1, func_stack, 0);
     emit_pop(code, op2, func_stack, 1);
     Type_size max_type = max(get_type_size(op1), get_type_size(op2));
@@ -291,7 +291,6 @@ int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_st
                                     reg[1][max_type],
                                     reg[0][max_type]
     ));
-    assembly_push_back(code, sprint("\t# %s", op));
     assembly_push_back(code, sprint("\t%s   %%%s",
                                     op,
                                     reg[0][BYTE]
@@ -301,7 +300,7 @@ int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_st
 }
 
 void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack) {
-    assembly_push_back(code, sprint("\t# pop, cmp and je"));
+    assembly_push_back(code, sprint("\t# (pop) cmp and je"));
     emit_pop(code, op1, func_stack, 0);
     assembly_push_back(code, sprint("\tcmp%c   $0, %%%s",
                                     op_suffix[get_type_size(op1)],

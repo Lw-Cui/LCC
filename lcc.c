@@ -291,7 +291,7 @@ int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_st
                                     reg[1][max_type],
                                     reg[0][max_type]
     ));
-    assembly_push_back(code, sprint("\t%s   %%%s",
+    assembly_push_back(code, sprint("\t%-7s%%%s",
                                     op,
                                     reg[0][BYTE]
     ));

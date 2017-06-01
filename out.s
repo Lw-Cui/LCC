@@ -201,7 +201,7 @@ main:
 	movl   -24(%rbp), %eax
 	movl   $0, %ebx
 	cmpl   %ebx, %eax
-	setge   %al
+	setge  %al
 	movzbl %al, %eax
 	movl   %eax, -24(%rbp)
 	# (pop) cmp and je
@@ -241,7 +241,7 @@ main:
 	movl   -20(%rbp), %eax
 	movl   $7, %ebx
 	cmpl   %ebx, %eax
-	setle   %al
+	setle  %al
 	movzbl %al, %eax
 	movl   %eax, -20(%rbp)
 	movl   -20(%rbp), %eax
@@ -318,7 +318,7 @@ main:
 	movl   -28(%rbp), %eax
 	movl   $0, %ebx
 	cmpl   %ebx, %eax
-	setne   %al
+	setne  %al
 	movzbl %al, %eax
 	movl   %eax, -28(%rbp)
 	# (pop) cmp and je

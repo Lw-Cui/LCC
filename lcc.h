@@ -105,8 +105,6 @@ void assembly_push_front(Assembly *ptr, String *code);
 
 void assembly_output(Assembly *ptr);
 
-void emit_func_signature(Assembly *code, String *str);
-
 #define INVALID_OFFSET 0xFFFFFF
 
 typedef struct Stack {
@@ -214,7 +212,11 @@ int emit_push_register(Assembly *code, size_t idx, Type_size size, Stack *func_i
 
 void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx);
 
-void emit_func_arguments(Assembly *code, Analysis *func);
+void emit_func_signature(Assembly *code, String *str);
+
+void emit_get_func_arguments(Assembly *code, Analysis *func);
+
+void emit_set_func_arguments(Assembly *code, Analysis *func);
 
 void emit_local_variable(Assembly *code, Symbol *s);
 

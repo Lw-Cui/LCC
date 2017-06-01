@@ -69,8 +69,11 @@ primary_expression
 	    // just appeared in assignment expression
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    Symbol *var = find_name(symtab, $1.name);
-	    if (var == NULL) yyerror("%s hasn't been defined.", str(var->name));
+	    if (var == NULL) yyerror("%s hasn't been defined yet.", str(var->name));
 	    set_value_info(&$$.res_info, var->stack_info.offset, (Type_size)var->self_type);
+	    // for func call
+	    $$.name = var->name;
+	    $$.ret_type = var->ret_type;
 	}
 	| constant {
 	    // res_info has been set in lexx.l
@@ -115,7 +118,16 @@ postfix_expression
 	| postfix_expression '[' expression ']'
 	| postfix_expression '(' ')'
 	| postfix_expression '(' argument_expression_list ')' {
-	    // TODO: call function and return result
+	    if (!$$.assembly) $$.assembly = make_assembly();
+	    assembly_append($$.assembly, $3.assembly);
+	    // TODO: free resource
+	    emit_set_func_arguments($$.assembly, &$3);
+        assembly_push_back($$.assembly, sprint("\tcall   %s", str($1.name)));
+        set_value_info(
+            &$$.res_info,
+            emit_push_register($$.assembly, 0, (Type_size)$1.ret_type, &get_top_scope(symtab)->stack_info),
+            (Type_size)$1.ret_type
+        );
 	}
 	| postfix_expression '.' IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
@@ -129,10 +141,13 @@ argument_expression_list
 	: assignment_expression {
 	    // first (actual) argument, different from 'parameter_list' used in function declaration
         if ($$.param == NULL) $$.param = make_vector();
+        $$.assembly = $1.assembly;
         push_back($$.param, clone_value(&$1.res_info));
 	}
 	| argument_expression_list ',' assignment_expression {
-        push_back($$.param, clone_value(&$2.res_info));
+	    assembly_append($1.assembly, $3.assembly);
+        $$.assembly = $1.assembly;
+        push_back($$.param, clone_value(&$3.res_info));
 	}
 	;
 
@@ -788,7 +803,7 @@ function_definition_header
 	    emit_func_signature($$.assembly, $2.name);
         assembly_push_back($$.assembly, make_string("\tpushq  %rbp"));
         assembly_push_back($$.assembly, make_string("\tmovq   %rsp, %rbp"));
-        emit_func_arguments($$.assembly, symtab);
+        emit_get_func_arguments($$.assembly, symtab);
     }
     ;
 

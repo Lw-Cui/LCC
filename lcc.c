@@ -70,14 +70,13 @@ void assembly_output(Assembly *ptr) {
         fprintf(output, "%s\n", str(p->body));
 }
 
-void emit_func_arguments(Assembly *code, Analysis *func) {
+void emit_get_func_arguments(Assembly *code, Analysis *func) {
     Assembly *al = make_assembly();
     for (int i = 0; i < size(func->param); i++) {
         Symbol *arg = symbol_cast(at(func->param, i));
         arg->parent = symtab;
         symtab = arg;
         arg->stack_info.offset = allocate_stack(&func->stack_info, real_size[arg->self_type], al);
-        //set_value_info(&arg->res_info, arg->stack_info.offset, (Type_size) arg->self_type);
         assembly_push_back(al, sprint("\t# passing %s %d byte(s) %d(%%rbp)",
                                       str(arg->name), real_size[arg->self_type], -arg->stack_info.offset));
         assembly_push_back(al, sprint("\tmov%c   %s, %d(%%rbp)",
@@ -367,4 +366,26 @@ void set_exit_label(Label *p) {
 
 String *get_exit_label(Label *p) {
     return sprint(".F%d", p->exit_label);
+}
+
+void emit_set_func_arguments(Assembly *code, Analysis *func) {
+    Assembly *al = make_assembly();
+    for (int i = 0; i < size(func->param); i++) {
+        Value *arg = (Value *) (at(func->param, i));
+        assembly_push_back(al, sprint("\t# passing arg %d", i));
+        if (has_constant(arg)) {
+            assembly_push_back(al, sprint("\tmov%c   $%d, %s",
+                                          op_suffix[arg->size],
+                                          get_constant(arg),
+                                          arugments_register[arg->size][i]
+            ));
+        } else if (has_stack_offset(arg)) {
+            assembly_push_back(al, sprint("\tmov%c   %d(%%rbp), %s",
+                                          op_suffix[arg->size],
+                                          -get_stack_offset(arg),
+                                          arugments_register[arg->size][i]
+            ));
+        }
+    }
+    assembly_append(code, al);
 }

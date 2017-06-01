@@ -1,11 +1,11 @@
 int foo(char a, int b) {
-    return a - b;
+    if (a > b) return a - b;
+    else return 1 + foo(b, a);
 }
 
 int main(int count) {
     int v1 = 6 + 1 * count; // v1 = 7
     char v2 = v1 - 5;        // v2 = 2
-
     char v3 = 0;
     v3 = v1 + 8 / v2;       // v3 = 11
     int v4 = v3 >> 2;
@@ -30,7 +30,7 @@ int main(int count) {
             v4 = v4 - 1;
         }
         if (v5 == 7)
-            return v4 + 3 + v5 + v2;// 12
+            return v4 + 3 + v5 + v2 + foo(0, 1);// 14
         else return 0;
     }
 }

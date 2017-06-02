@@ -1,7 +1,4 @@
-int foo(char a, int b) {
-    if (a > b) return a - b;
-    else return 1 + foo(b, a);
-}
+int foo(char a, int b);
 
 int main(int count) {
     int v1 = 6 + 1 * count; // v1 = 7
@@ -35,3 +32,7 @@ int main(int count) {
     }
 }
 
+int foo(char a, int b) {
+    if (a > b) return a - b;
+    else return 1 + foo(b, a);
+}

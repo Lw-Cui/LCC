@@ -10,17 +10,29 @@ Symbol *symbol_cast(void *ptr) {
     return (Symbol *) ptr;
 }
 
-Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
+static Symbol *make_func_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
-    ptr->self_type = DFUNC;
     ptr->ret_type = ret_type;
     ptr->name = name;
     ptr->param = param;
     ptr->parent = parent;
+    return ptr;
+}
+
+Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
+    Symbol *ptr = make_func_symbol(ret_type, name, param, parent);
+    ptr->self_type = DFUNC;
     ptr->assembly = make_assembly();
     ptr->stack_info.offset = ptr->stack_info.rsp = 0;
     return ptr;
 }
+
+Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
+    Symbol *decl = make_func_symbol(ret_type, name, param, parent);
+    decl->self_type = FUNC_DECL;
+    return decl;
+}
+
 
 Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent, Value res_info) {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
@@ -125,20 +137,11 @@ void emit_local_variable(Assembly *code, Symbol *s) {
     }
 }
 
-Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
-    Symbol *decl = symbol_cast(malloc(sizeof(Symbol)));
-    decl->self_type = FUNC_DECL;
-    decl->ret_type = ret_type;
-    decl->name = name;
-    decl->param = param;
-    decl->parent = parent;
-    return decl;
-}
-
 int allocate_stack(Stack *stack_info, int bytes, Assembly *code) {
     for (int i = 0; i < bytes; i++)
         if ((stack_info->offset + i + bytes) % bytes == 0) {
-            // rsp only could be increased
+            // rsp only could be increased; stack top is designed to do alloc/free.
+            // Otherwise func call alignment cannot be satisfied
             while (stack_info->offset + i + bytes > stack_info->rsp) stack_info->rsp += 16;
             return stack_info->offset += i + bytes;
         }

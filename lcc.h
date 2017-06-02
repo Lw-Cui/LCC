@@ -24,8 +24,8 @@ typedef enum Type_size {
 typedef enum Type {
     DCHAR = BYTE,
     DINT = LONG_WORD,
-    DFUNC,          // function definition
-    FUNC_DECL,     // function declaration
+    DFUNC,          // function definition: 3
+    FUNC_DECL,     // function declaration: 4
     FUNC_CALL,
     NEW_SCOPE,      // new scope, e.g. function, for, while, if
     NOT_KNOWN,

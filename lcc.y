@@ -72,6 +72,7 @@ primary_expression
 	    Symbol *var = find_name(symtab, $1.name);
 	    if (var == NULL) yyerror("%s hasn't been defined yet.", str(var->name));
 	    set_value_info(&$$.res_info, var->stack_info.offset, (Type_size)var->self_type);
+	    $$.self_type = var->self_type;
 	    // for func call
 	    $$.name = var->name;
 	    $$.ret_type = var->ret_type;
@@ -122,6 +123,7 @@ postfix_expression
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    assembly_append($$.assembly, $3.assembly);
 	    emit_set_func_arguments($$.assembly, &$3);
+	    if ($1.self_type != FUNC_DECL && $1.self_type != DFUNC) yyerror("Don't find func name %s", str($1.name));
         assembly_push_back($$.assembly, sprint("\tcall   %s", str($1.name)));
         set_value_info(
             &$$.res_info,
@@ -343,6 +345,8 @@ declaration
             emit_local_variable($$.assembly, symtab);
             // free for-loop var
             $$.name = symtab->name;
+	    } else if ($2.self_type == FUNC_DECL) {
+	        symtab->ret_type = $1.self_type;
 	    }
 	}
 	| static_assert_declaration
@@ -363,10 +367,13 @@ declaration_specifiers
 
 init_declarator_list
 	: init_declarator {
-	    if (!in_global_scope(symtab))
+	    if (!in_global_scope(symtab)) {
             symtab = make_local_symbol(NOT_KNOWN, $1.name, symtab, $1.res_info);
-        else
-	        yyerror("Global var isn't supported yet: %s", str($1.name));
+        } else if ($1.self_type == FUNC_DECL) {
+            symtab = make_func_decl_symbol(NOT_KNOWN, $1.name, $1.param, symtab);
+        } else {
+            // TODO: global var
+        }
 	}
 	| init_declarator_list ',' init_declarator
 	;
@@ -512,6 +519,7 @@ direct_declarator
 	| direct_declarator '[' assignment_expression ']'
 	| direct_declarator '(' parameter_type_list ')' {
 	    // normal function declaration
+	    $$.self_type = FUNC_DECL;
 	    $$.name = $1.name;
 	    $$.param = $3.param;
 	}
@@ -789,7 +797,7 @@ function_definition
         assembly_push_back($$.assembly, make_string("\tpopq   %rbp"));
         assembly_push_back($$.assembly, make_string("\tret\n"));
         // goto decl
-        symtab = symtab->parent;
+        while (symtab->self_type != FUNC_DECL) symtab = symtab->parent;
 	}
 	;
 
@@ -797,6 +805,7 @@ function_definition_header
     : declaration_specifiers declarator declaration_list
     | declaration_specifiers declarator {
         // To support recursion and symtab search
+        // decl is the parent of def
         Symbol *decl = make_func_decl_symbol($1.self_type, $2.name, $2.param, symtab);
 	    symtab = make_func_def_symbol($1.self_type, $2.name, $2.param, decl);
 	    if (!$$.assembly) $$.assembly = make_assembly();

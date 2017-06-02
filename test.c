@@ -1,3 +1,5 @@
+int putchar(int);
+
 int foo(char a, int b);
 
 int main(int count) {
@@ -33,6 +35,7 @@ int main(int count) {
 }
 
 int foo(char a, int b) {
+    putchar(98);
     if (a > b) return a - b;
     else return 1 + foo(b, a);
 }

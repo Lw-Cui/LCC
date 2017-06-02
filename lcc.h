@@ -43,7 +43,12 @@ static char *type_name[] = {
         "int",
 };
 
-static char *reg[][4] = {
+
+static char op_suffix[] = {
+        'b', 'w', 'l', 'q',
+};
+
+static char *regular_reg[][4] = {
         {
                 "al",
                 "ax",
@@ -65,29 +70,33 @@ static char *reg[][4] = {
         }
 };
 
-static char op_suffix[] = {
-        'b', 'w', 'l', 'q',
-};
-
-static char *arugments_register[][6] = {
+static char *arguments_reg[][4] = {
         {
-                "%dil",
-                "%sil",
-                "%dl",
-                "%cl",
-                "%r8b",
-                "%r9b",
+                "dil",
+                "di",
+                "edi",
+                "rdi",
         },
-        {},
         {
 
-                "%edi",
-                "%esi",
-                "%edx",
-                "%ecx",
-                "%r8d",
-                "%r9d",
+                "sil",
+                "si",
+                "esi",
+                "rsi",
         },
+        {
+                "dl",
+                "dx",
+                "edx",
+                "rdx",
+        },
+        {
+                "cl",
+                "cx",
+                "ecx",
+                "rcx",
+
+        }
 };
 
 extern FILE *output;
@@ -193,7 +202,7 @@ typedef Analysis Symbol;
 
 void free_variables(Stack *, Symbol *);
 
-void zero_extend(Assembly *code, int idx, Type_size original, Type_size new);
+void signal_extend(Assembly *code, int idx, Type_size original, Type_size new);
 
 void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack);
 

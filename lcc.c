@@ -82,22 +82,6 @@ void assembly_output(Assembly *ptr) {
         fprintf(output, "%s\n", str(p->body));
 }
 
-void emit_get_func_arguments(Assembly *code, Analysis *func) {
-    Assembly *al = make_assembly();
-    for (int i = 0; i < size(func->param); i++) {
-        Symbol *arg = symbol_cast(at(func->param, i));
-        arg->parent = symtab;
-        symtab = arg;
-        arg->stack_info.offset = allocate_stack(&func->stack_info, real_size[arg->self_type], al);
-        assembly_push_back(al, sprint("\t# passing %s %d byte(s) %d(%%rbp)",
-                                      str(arg->name), real_size[arg->self_type], -arg->stack_info.offset));
-        assembly_push_back(al, sprint("\tmov%c   %s, %d(%%rbp)",
-                                      op_suffix[arg->self_type],
-                                      arugments_register[arg->self_type][i],
-                                      -arg->stack_info.offset));
-    }
-    assembly_append(code, al);
-}
 
 Symbol *get_top_scope(Symbol *symtab) {
     Symbol *s = symtab;
@@ -129,10 +113,10 @@ void emit_local_variable(Assembly *code, Symbol *s) {
                                         get_constant(&s->res_info),
                                         -s->stack_info.offset));
     } else if (has_stack_offset(&s->res_info)) {
-        zero_extend(code, 0, get_type_size(&s->res_info), (Type_size) s->self_type);
+        signal_extend(code, 0, get_type_size(&s->res_info), (Type_size) s->self_type);
         assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
                                         op_suffix[s->self_type],
-                                        reg[0][s->self_type],
+                                        regular_reg[0][s->self_type],
                                         -s->stack_info.offset));
     }
 }
@@ -195,10 +179,10 @@ void emit_push_var(Assembly *code, Value *res_info, Stack *func_info) {
         assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
                                         op_suffix[get_type_size(res_info)],
                                         -get_stack_offset(res_info),
-                                        reg[0][get_type_size(res_info)]));
+                                        regular_reg[0][get_type_size(res_info)]));
         assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
                                         op_suffix[get_type_size(res_info)],
-                                        reg[0][get_type_size(res_info)],
+                                        regular_reg[0][get_type_size(res_info)],
                                         -offset));
         set_value_info(res_info, offset, get_type_size(res_info));
     }
@@ -208,7 +192,7 @@ int emit_push_register(Assembly *code, size_t idx, Type_size size, Stack *func_i
     int offset = allocate_stack(func_info, real_size[size], code);
     assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
                                     op_suffix[size],
-                                    reg[idx][size],
+                                    regular_reg[idx][size],
                                     -offset));
     return offset;
 }
@@ -218,13 +202,13 @@ void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx) {
         assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
                                         op_suffix[get_type_size(res_info)],
                                         -get_stack_offset(res_info),
-                                        reg[idx][get_type_size(res_info)]));
+                                        regular_reg[idx][get_type_size(res_info)]));
         free_stack(func_info, real_size[get_type_size(res_info)]);
     } else if (has_constant(res_info)) {
         assembly_push_back(code, sprint("\tmov%c   $%d, %%%s",
                                         op_suffix[get_type_size(res_info)],
                                         get_constant(res_info),
-                                        reg[idx][get_type_size(res_info)]));
+                                        regular_reg[idx][get_type_size(res_info)]));
     }
 }
 
@@ -233,13 +217,13 @@ int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, S
     emit_pop(code, op1, func_stack, 0);
     emit_pop(code, op2, func_stack, 1);
     Type_size max_type = max(get_type_size(op1), get_type_size(op2));
-    zero_extend(code, 0, get_type_size(op1), max_type);
-    zero_extend(code, 1, get_type_size(op2), max_type);
+    signal_extend(code, 0, get_type_size(op1), max_type);
+    signal_extend(code, 1, get_type_size(op2), max_type);
     assembly_push_back(code, sprint("\t%s%c   %%%s, %%%s",
                                     op_prefix,
                                     op_suffix[max_type],
-                                    reg[1][max_type],
-                                    reg[0][max_type]
+                                    regular_reg[1][max_type],
+                                    regular_reg[0][max_type]
     ));
     return emit_push_register(code, 0, max_type, func_stack);
 }
@@ -249,12 +233,12 @@ int pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, S
     emit_pop(code, op1, func_stack, 0);
     emit_pop(code, op2, func_stack, 1);
     Type_size max_type = max(get_type_size(op1), get_type_size(op2));
-    zero_extend(code, 0, get_type_size(op1), max_type);
-    zero_extend(code, 1, get_type_size(op2), max_type);
+    signal_extend(code, 0, get_type_size(op1), max_type);
+    signal_extend(code, 1, get_type_size(op2), max_type);
     assembly_push_back(code, sprint("\t%s%c   %%%s",
                                     op_prefix,
                                     op_suffix[max_type],
-                                    reg[1][max_type]
+                                    regular_reg[1][max_type]
     ));
     return emit_push_register(code, 0, max_type, func_stack);
 }
@@ -266,20 +250,28 @@ int pop_and_shift(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack
     assembly_push_back(code, sprint("\t%s%c   %%%s, %%%s",
                                     op_prefix,
                                     op_suffix[get_type_size(op1)],
-                                    reg[2][BYTE],
-                                    reg[0][get_type_size(op1)]
+                                    regular_reg[2][BYTE],
+                                    regular_reg[0][get_type_size(op1)]
     ));
     return emit_push_register(code, 0, get_type_size(op1), func_stack);
 }
 
-void zero_extend(Assembly *code, int idx, Type_size original, Type_size new) {
+void extend(Assembly *code, char *reg[][4], int idx, Type_size original, Type_size new) {
     if (original >= new) return;
-    assembly_push_back(code, sprint("\tmovz%c%c %%%s, %%%s",
+    assembly_push_back(code, sprint("\tmovs%c%c %%%s, %%%s",
                                     op_suffix[original],
                                     op_suffix[new],
-                                    reg[0][original],
-                                    reg[0][new]
+                                    reg[idx][original],
+                                    reg[idx][new]
     ));
+}
+
+void signal_extend(Assembly *code, int idx, Type_size original, Type_size new) {
+    extend(code, regular_reg, idx, original, new);
+}
+
+void arguments_extend(Assembly *code, int idx, Type_size original, Type_size new) {
+    extend(code, arguments_reg, idx, original, new);
 }
 
 int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_stack) {
@@ -287,18 +279,18 @@ int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_st
     emit_pop(code, op1, func_stack, 0);
     emit_pop(code, op2, func_stack, 1);
     Type_size max_type = max(get_type_size(op1), get_type_size(op2));
-    zero_extend(code, 0, get_type_size(op1), max_type);
-    zero_extend(code, 1, get_type_size(op2), max_type);
+    signal_extend(code, 0, get_type_size(op1), max_type);
+    signal_extend(code, 1, get_type_size(op2), max_type);
     assembly_push_back(code, sprint("\tcmp%c   %%%s, %%%s",
                                     op_suffix[max_type],
-                                    reg[1][max_type],
-                                    reg[0][max_type]
+                                    regular_reg[1][max_type],
+                                    regular_reg[0][max_type]
     ));
     assembly_push_back(code, sprint("\t%-7s%%%s",
                                     op,
-                                    reg[0][BYTE]
+                                    regular_reg[0][BYTE]
     ));
-    zero_extend(code, 0, BYTE, LONG_WORD);
+    signal_extend(code, 0, BYTE, LONG_WORD);
     return emit_push_register(code, 0, LONG_WORD, func_stack);
 }
 
@@ -307,7 +299,7 @@ void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack)
     emit_pop(code, op1, func_stack, 0);
     assembly_push_back(code, sprint("\tcmp%c   $0, %%%s",
                                     op_suffix[get_type_size(op1)],
-                                    reg[0][get_type_size(op1)]
+                                    regular_reg[0][get_type_size(op1)]
     ));
     assembly_push_back(code, sprint("\tje     %s",
                                     str(if_equal)
@@ -387,18 +379,37 @@ void emit_set_func_arguments(Assembly *code, Analysis *func) {
         Value *arg = (Value *) (at(func->param, i));
         assembly_push_back(al, sprint("\t# passing arg %d", i));
         if (has_constant(arg)) {
-            assembly_push_back(al, sprint("\tmov%c   $%d, %s",
+            assembly_push_back(al, sprint("\tmov%c   $%d, %%%s",
                                           op_suffix[arg->size],
                                           get_constant(arg),
-                                          arugments_register[arg->size][i]
+                                          arguments_reg[i][arg->size]
             ));
+            arguments_extend(al, i, arg->size, QUAD_WORD);
         } else if (has_stack_offset(arg)) {
-            assembly_push_back(al, sprint("\tmov%c   %d(%%rbp), %s",
+            assembly_push_back(al, sprint("\tmov%c   %d(%%rbp), %%%s",
                                           op_suffix[arg->size],
                                           -get_stack_offset(arg),
-                                          arugments_register[arg->size][i]
+                                          arguments_reg[i][arg->size]
             ));
+            arguments_extend(al, i, arg->size, QUAD_WORD);
         }
+    }
+    assembly_append(code, al);
+}
+
+void emit_get_func_arguments(Assembly *code, Analysis *func) {
+    Assembly *al = make_assembly();
+    for (int i = 0; i < size(func->param); i++) {
+        Symbol *arg = symbol_cast(at(func->param, i));
+        arg->parent = symtab;
+        symtab = arg;
+        arg->stack_info.offset = allocate_stack(&func->stack_info, real_size[arg->self_type], al);
+        assembly_push_back(al, sprint("\t# passing %s %d byte(s) %d(%%rbp)",
+                                      str(arg->name), real_size[arg->self_type], -arg->stack_info.offset));
+        assembly_push_back(al, sprint("\tmov%c   %%%s, %d(%%rbp)",
+                                      op_suffix[arg->self_type],
+                                      arguments_reg[i][arg->self_type],
+                                      -arg->stack_info.offset));
     }
     assembly_append(code, al);
 }

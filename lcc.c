@@ -290,8 +290,8 @@ int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_st
                                     op,
                                     regular_reg[0][BYTE]
     ));
-    signal_extend(code, 0, BYTE, LONG_WORD);
-    return emit_push_register(code, 0, LONG_WORD, func_stack);
+    signal_extend(code, 0, BYTE, QUAD_WORD);
+    return emit_push_register(code, 0, QUAD_WORD, func_stack);
 }
 
 void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack) {

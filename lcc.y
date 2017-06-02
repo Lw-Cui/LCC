@@ -403,11 +403,15 @@ type_specifier
 	| CHAR {
 	    $$.self_type = DCHAR;
 	}
-	| SHORT
+	| SHORT {
+	    $$.self_type = DSHORT;
+	}
 	| INT {
 	    $$.self_type = DINT;
 	}
-	| LONG
+	| LONG {
+	    $$.self_type = DLONG;
+	}
 	| FLOAT
 	| DOUBLE
 	| SIGNED

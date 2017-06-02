@@ -4,10 +4,10 @@ int foo(char a, int b);
 
 int main(int count) {
     int v1 = 6 + 1 * count; // v1 = 7
-    char v2 = v1 - 5;        // v2 = 2
+    short v2 = v1 - 5;        // v2 = 2
     char v3 = 0;
     v3 = v1 + 8 / v2;       // v3 = 11
-    int v4 = v3 >> 2;
+    long v4 = v3 >> 2;
     v4 = v4 << 1;
     for (int i = 0; i < 3; i = i + 1)
         v4 = v4 + 1;        // v4 = 7

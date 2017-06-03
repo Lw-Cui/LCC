@@ -70,7 +70,7 @@ primary_expression
 	    // just appeared in assignment expression
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    Symbol *var = find_name(symtab, $1.name);
-	    if (var == NULL) yyerror("%s hasn't been defined yet.", str(var->name));
+	    if (var == NULL) yyerror("%s hasn't been defined yet.", str($1.name));
 	    set_value_info(&$$.res_info, var->stack_info.offset, (Type_size)var->self_type);
 	    $$.self_type = var->self_type;
 	    // for func call
@@ -117,7 +117,9 @@ generic_association
 
 postfix_expression
 	: primary_expression
-	| postfix_expression '[' expression ']'
+	| postfix_expression '[' expression ']' {
+	    // TODO: Array
+	}
 	| postfix_expression '(' ')'
 	| postfix_expression '(' argument_expression_list ')' {
 	    if (!$$.assembly) $$.assembly = make_assembly();
@@ -372,7 +374,7 @@ init_declarator_list
         } else if ($1.self_type == FUNC_DECL) {
             symtab = make_func_decl_symbol(NOT_KNOWN, $1.name, $1.param, symtab);
         } else {
-            // TODO: global var
+            // global var
         }
 	}
 	| init_declarator_list ',' init_declarator
@@ -520,7 +522,8 @@ direct_declarator
 	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']'
 	| direct_declarator '[' type_qualifier_list assignment_expression ']'
 	| direct_declarator '[' type_qualifier_list ']'
-	| direct_declarator '[' assignment_expression ']'
+	| direct_declarator '[' assignment_expression ']' {
+	}
 	| direct_declarator '(' parameter_type_list ')' {
 	    // normal function declaration
 	    $$.self_type = FUNC_DECL;
@@ -569,7 +572,7 @@ parameter_declaration
 	| declaration_specifiers {
 	    // function parameter without name
         if ($$.param == NULL) $$.param = make_vector();
-        push_back($$.param, malloc(sizeof(Symbol)));
+        push_back($$.param, make_symbol());
         symbol_cast(back($$.param))->self_type = $1.self_type;
     }
 	;

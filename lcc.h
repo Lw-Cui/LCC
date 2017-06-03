@@ -234,6 +234,8 @@ void emit_local_variable(Assembly *code, Symbol *s);
 
 void add_while_label(Symbol *cond, Analysis *stat);
 
+Symbol *make_symbol();
+
 Symbol *symbol_cast(void *);
 
 Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol *parent);

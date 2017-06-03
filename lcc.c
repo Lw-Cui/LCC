@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <memory.h>
 #include <stdio.h>
 #include "lcc.h"
 
@@ -11,7 +12,7 @@ Symbol *symbol_cast(void *ptr) {
 }
 
 static Symbol *make_func_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
-    Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
+    Symbol *ptr = make_symbol();
     ptr->ret_type = ret_type;
     ptr->name = name;
     ptr->param = param;
@@ -35,7 +36,7 @@ Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol
 
 
 Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent, Value res_info) {
-    Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
+    Symbol *ptr = make_symbol();
     ptr->parent = parent;
     ptr->self_type = self_type;
     ptr->name = name;
@@ -43,15 +44,16 @@ Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent, Value re
     return ptr;
 }
 
+
 Symbol *make_new_scope(Symbol *parent) {
-    Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
+    Symbol *ptr = make_symbol();
     ptr->self_type = NEW_SCOPE;
     ptr->parent = parent;
     return ptr;
 }
 
 Symbol *make_param_symbol(Type type, String *name) {
-    Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
+    Symbol *ptr = make_symbol();
     ptr->self_type = type;
     ptr->name = name;
     return ptr;
@@ -167,7 +169,9 @@ int has_stack_offset(Value *p) {
 
 Symbol *find_name(Symbol *symtab, String *name) {
     Symbol *s = symtab;
-    while (s != NULL && !equal_string(s->name, name)) s = s->parent;
+    while (s != NULL && !equal_string(s->name, name)) {
+        s = s->parent;
+    }
     return s;
 }
 
@@ -343,6 +347,7 @@ Type_size get_type_size(Value *p) {
 
 Value *make_constant_val(int val) {
     Value *ptr = (Value *) malloc(sizeof(Value));
+    memset(ptr, 0, sizeof(Value));
     ptr->index = 2;
     ptr->int_num = val;
     return ptr;
@@ -350,6 +355,7 @@ Value *make_constant_val(int val) {
 
 Value *make_stack_val(int offset, Type_size size) {
     Value *ptr = (Value *) malloc(sizeof(Value));
+    memset(ptr, 0, sizeof(Value));
     ptr->index = 1;
     ptr->offset = offset;
     ptr->size = size;
@@ -358,6 +364,7 @@ Value *make_stack_val(int offset, Type_size size) {
 
 Value *clone_value(Value *bak) {
     Value *ptr = (Value *) malloc(sizeof(Value));
+    memset(ptr, 0, sizeof(Value));
     ptr->index = bak->index;
     ptr->offset = bak->offset;
     ptr->size = bak->size;
@@ -412,4 +419,10 @@ void emit_get_func_arguments(Assembly *code, Analysis *func) {
                                       -arg->stack_info.offset));
     }
     assembly_append(code, al);
+}
+
+Symbol *make_symbol() {
+    Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
+    memset(ptr, 0, sizeof(Symbol));
+    return ptr;
 }

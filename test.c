@@ -33,7 +33,7 @@ int main(int argc) {
             v5 = v5 + 1;
         int tmp = 0;
     }
-
+    int array[2][5];
     if (v4 == v2) {
         return v4 + 3;              // 7
     } else {

@@ -3,6 +3,8 @@
 
 #include "ADT.h"
 
+#define TOP_STACK get_top_scope(symtab)
+
 #define max(a, b) \
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
@@ -39,12 +41,6 @@ static int real_size[] = {
         4,
         8,
 };
-static char *type_name[] = {
-        "char",
-        "",
-        "int",
-};
-
 
 static char op_suffix[] = {
         'b', 'w', 'l', 'q',
@@ -120,15 +116,21 @@ void assembly_output(Assembly *ptr);
 #define INVALID_OFFSET 0xFFFFFF
 
 typedef struct Stack {
+    // normal offset in stack
     int offset;
+
+    // array-related
+    Vector *step;
+
+    // top of whole stack
     int rsp;
 } Stack;
 
-int allocate_stack(Stack *, int, Assembly *);
+int allocate_stack(int);
 
-int allocate_stack(Stack *, int, Assembly *);
+int allocate_stack(int);
 
-void free_stack(Stack *, int);
+void free_stack(int);
 
 
 typedef struct Value {
@@ -141,6 +143,10 @@ typedef struct Value {
     // for tmp var
     int offset;
     Type_size size;
+
+    // for array
+    Vector *step;
+    int cur_dimension;
 } Value;
 
 Value *make_constant_val(int val);
@@ -192,45 +198,57 @@ typedef struct Analysis {
     // for function
     Type ret_type;
     Vector *param;
+    int rsp;
 
-    // for variable
-    Stack stack_info;
+    // varaible offset in stack
+    int offset;
 
-    // for tmp var
+    // array-related step
+    Vector *step;
+
+    // for var usage
     Value res_info;
 } Analysis;
 
 typedef Analysis Symbol;
 
-void free_variables(Stack *, Symbol *);
+void add_dimension(Symbol *s, int d);
+
+void convert_dimension_to_step();
+
+void yyerror(const char *fmt, ...);
+
+void free_variables(Symbol *);
 
 void signal_extend(Assembly *code, int idx, Type_size original, Type_size new);
 
-void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack);
+void pop_and_je(Assembly *code, Value *op1, String *if_equal);
 
-int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *);
+Value *pop_and_op(Assembly *code, Value *op1, char *op_prefix, Value *op2);
 
-int pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *);
+int pop_and_index(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *);
 
-int pop_and_shift(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack);
+Value *pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2);
 
-int pop_and_set(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack);
+Value *pop_and_shift(Assembly *code, Value *op1, char *op_prefix, Value *op2);
+
+Value *pop_and_set(Assembly *code, Value *op1, char *op_prefix, Value *op2);
 
 void emit_jump(Assembly *code, String *label);
 
-void emit_push_var(Assembly *code, Value *res_info, Stack *func_info);
+void emit_push_var(Assembly *code, Value *res_info);
 
-int emit_push_register(Assembly *code, size_t idx, Type_size size, Stack *func_info);
+int emit_push_register(Assembly *code, size_t idx, Type_size size);
 
-void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx);
+void emit_pop(Assembly *code, Value *res_info, size_t idx);
 
 void emit_func_signature(Assembly *code, String *str);
 
-void emit_get_func_arguments(Assembly *code, Analysis *func);
+void emit_get_func_arguments(Assembly *code);
 
-void emit_set_func_arguments(Assembly *code, Analysis *func);
+void emit_set_func_arguments(Assembly *code, Symbol *func);
 
-void emit_local_variable(Assembly *code, Symbol *s);
+void emit_local_variable(Assembly *code);
 
 void add_while_label(Symbol *cond, Analysis *stat);
 
@@ -238,21 +256,25 @@ Symbol *make_symbol();
 
 Symbol *symbol_cast(void *);
 
-Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol *parent);
+void enter_func_def_symbol(Type ret_type, String *name, Vector *param);
 
-Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent);
+void exit_func_def();
 
-Symbol *make_local_symbol(Type, String *name, Symbol *parent, Value res_info);
+void make_func_decl_symbol(Type ret_type, String *name, Vector *param);
+
+void make_local_symbol(Type, String *name, Vector *step, Value res_info);
 
 Symbol *make_param_symbol(Type, String *name);
 
-Symbol *make_new_scope(Symbol *parent);
+void make_new_scope();
 
-Symbol *find_name(Symbol *symtab, String *name);
+void destroy_new_scope();
 
-Symbol *get_top_scope(Symbol *symtab);
+Symbol *find_name(String *name);
 
-int in_global_scope(Symbol *);
+Symbol *get_top_scope();
+
+int in_global_scope();
 
 #define YYSTYPE Analysis
 

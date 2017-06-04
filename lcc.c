@@ -11,45 +11,56 @@ Symbol *symbol_cast(void *ptr) {
     return (Symbol *) ptr;
 }
 
-static Symbol *make_func_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
+static Symbol *make_func_symbol(Type ret_type, String *name, Vector *param) {
     Symbol *ptr = make_symbol();
     ptr->ret_type = ret_type;
     ptr->name = name;
     ptr->param = param;
-    ptr->parent = parent;
+    ptr->parent = symtab;
     return ptr;
 }
 
-Symbol *make_func_def_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
-    Symbol *ptr = make_func_symbol(ret_type, name, param, parent);
-    ptr->self_type = DFUNC;
-    ptr->assembly = make_assembly();
-    ptr->stack_info.offset = ptr->stack_info.rsp = 0;
-    return ptr;
+void enter_func_def_symbol(Type ret_type, String *name, Vector *param) {
+    symtab = make_func_symbol(ret_type, name, param);
+    symtab->self_type = DFUNC;
+    symtab->assembly = make_assembly();
+    symtab->offset = symtab->rsp = 0;
 }
 
-Symbol *make_func_decl_symbol(Type ret_type, String *name, Vector *param, Symbol *parent) {
-    Symbol *decl = make_func_symbol(ret_type, name, param, parent);
-    decl->self_type = FUNC_DECL;
-    return decl;
+void exit_func_def() {
+    while (symtab->self_type != FUNC_DECL) symtab = symtab->parent;
+}
+
+void make_func_decl_symbol(Type ret_type, String *name, Vector *param) {
+    symtab = make_func_symbol(ret_type, name, param);
+    symtab->self_type = FUNC_DECL;
 }
 
 
-Symbol *make_local_symbol(Type self_type, String *name, Symbol *parent, Value res_info) {
+void make_local_symbol(Type self_type, String *name, Vector *step, Value res_info) {
     Symbol *ptr = make_symbol();
-    ptr->parent = parent;
-    ptr->self_type = self_type;
-    ptr->name = name;
-    ptr->res_info = res_info;
-    return ptr;
+    ptr->parent = symtab;
+    symtab = ptr;
+    symtab->self_type = self_type;
+    symtab->name = name;
+    symtab->step = step;
+    symtab->res_info = res_info;
 }
 
 
-Symbol *make_new_scope(Symbol *parent) {
+void make_new_scope() {
     Symbol *ptr = make_symbol();
     ptr->self_type = NEW_SCOPE;
-    ptr->parent = parent;
-    return ptr;
+    ptr->parent = symtab;
+    symtab = ptr;
+}
+
+void destroy_new_scope() {
+    while (symtab->self_type != NEW_SCOPE) {
+        free_variables(symtab);
+        symtab = symtab->parent;
+    }
+    symtab = symtab->parent;
 }
 
 Symbol *make_param_symbol(Type type, String *name) {
@@ -85,14 +96,14 @@ void assembly_output(Assembly *ptr) {
 }
 
 
-Symbol *get_top_scope(Symbol *symtab) {
+Symbol *get_top_scope() {
     Symbol *s = symtab;
     while (s != NULL && s->self_type != DFUNC) s = s->parent;
     return s;
 }
 
-int in_global_scope(Symbol *symtab) {
-    Symbol *s = get_top_scope(symtab);
+int in_global_scope() {
+    Symbol *s = get_top_scope();
     return s == NULL;
 }
 
@@ -101,29 +112,38 @@ void assembly_append(Assembly *p1, Assembly *p2) {
         append_list(p1->beg, p1->end, p2->beg, p2->end);
 }
 
-void emit_local_variable(Assembly *code, Symbol *s) {
-    Symbol *func = get_top_scope(s);
-    if (has_stack_offset(&s->res_info))
-        emit_pop(code, &s->res_info, &func->stack_info, 0);
-
-    s->stack_info.offset = allocate_stack(&func->stack_info, real_size[s->self_type], code);
-    assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
-                                    str(s->name), real_size[s->self_type], -s->stack_info.offset));
-    if (has_constant(&s->res_info)) {
+void emit_local_variable(Assembly *code) {
+    if (has_stack_offset(&symtab->res_info))
+        emit_pop(code, &symtab->res_info, 0);
+    if (symtab->step == NULL) {
+        // normal var
+        symtab->offset = allocate_stack(real_size[symtab->self_type]);
+        assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
+                                        str(symtab->name), real_size[symtab->self_type], -symtab->offset));
+    } else {
+        //array
+        for (int i = 0; i < *(int *) at(symtab->step, 0) / real_size[symtab->self_type]; i++)
+            symtab->offset = allocate_stack(real_size[symtab->self_type]);
+        assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
+                                        str(symtab->name), *(int *) at(symtab->step, 0), -symtab->offset));
+    }
+    // initialization
+    if (has_constant(&symtab->res_info)) {
         assembly_push_back(code, sprint("\tmov%c   $%d, %d(%%rbp)",
-                                        op_suffix[s->self_type],
-                                        get_constant(&s->res_info),
-                                        -s->stack_info.offset));
-    } else if (has_stack_offset(&s->res_info)) {
-        signal_extend(code, 0, get_type_size(&s->res_info), (Type_size) s->self_type);
+                                        op_suffix[symtab->self_type],
+                                        get_constant(&symtab->res_info),
+                                        -symtab->offset));
+    } else if (has_stack_offset(&symtab->res_info)) {
+        signal_extend(code, 0, get_type_size(&symtab->res_info), (Type_size) symtab->self_type);
         assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
-                                        op_suffix[s->self_type],
-                                        regular_reg[0][s->self_type],
-                                        -s->stack_info.offset));
+                                        op_suffix[symtab->self_type],
+                                        regular_reg[0][symtab->self_type],
+                                        -symtab->offset));
     }
 }
 
-int allocate_stack(Stack *stack_info, int bytes, Assembly *code) {
+int allocate_stack(int bytes) {
+    Symbol *stack_info = get_top_scope();
     for (int i = 0; i < bytes; i++)
         if ((stack_info->offset + i + bytes) % bytes == 0) {
             // rsp only could be increased; stack top is designed to do alloc/free.
@@ -131,6 +151,7 @@ int allocate_stack(Stack *stack_info, int bytes, Assembly *code) {
             while (stack_info->offset + i + bytes > stack_info->rsp) stack_info->rsp += 16;
             return stack_info->offset += i + bytes;
         }
+    yyerror("allocation error");
     return 0xFFFF;
 }
 
@@ -159,15 +180,15 @@ void set_value_info(Value *p, int offset, Type_size size) {
     p->size = size;
 }
 
-void free_stack(Stack *p, int byte) {
-    p->offset -= byte;
+void free_stack(int byte) {
+    get_top_scope()->offset -= byte;
 }
 
 int has_stack_offset(Value *p) {
     return p->index == 1;
 }
 
-Symbol *find_name(Symbol *symtab, String *name) {
+Symbol *find_name(String *name) {
     Symbol *s = symtab;
     while (s != NULL && !equal_string(s->name, name)) {
         s = s->parent;
@@ -175,10 +196,11 @@ Symbol *find_name(Symbol *symtab, String *name) {
     return s;
 }
 
-void emit_push_var(Assembly *code, Value *res_info, Stack *func_info) {
+void emit_push_var(Assembly *code, Value *res_info) {
     //Noting to do with res_info when it stores real value
-    if (has_stack_offset(res_info)) {
-        int offset = allocate_stack(func_info, real_size[get_type_size(res_info)], code);
+    // TODO: BUG - if (has_stack_offset(res_info) && size(res_info->step) == 1) {
+    if (has_stack_offset(res_info) && res_info->step == NULL) {
+        int offset = allocate_stack(real_size[get_type_size(res_info)]);
         assembly_push_back(code, sprint("\t# push %d(%%rbp)", -offset));
         assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
                                         op_suffix[get_type_size(res_info)],
@@ -189,11 +211,13 @@ void emit_push_var(Assembly *code, Value *res_info, Stack *func_info) {
                                         regular_reg[0][get_type_size(res_info)],
                                         -offset));
         set_value_info(res_info, offset, get_type_size(res_info));
+    } else {
+        // TODO: array
     }
 }
 
-int emit_push_register(Assembly *code, size_t idx, Type_size size, Stack *func_info) {
-    int offset = allocate_stack(func_info, real_size[size], code);
+int emit_push_register(Assembly *code, size_t idx, Type_size size) {
+    int offset = allocate_stack(real_size[size]);
     assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
                                     op_suffix[size],
                                     regular_reg[idx][size],
@@ -201,13 +225,13 @@ int emit_push_register(Assembly *code, size_t idx, Type_size size, Stack *func_i
     return offset;
 }
 
-void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx) {
+void emit_pop(Assembly *code, Value *res_info, size_t idx) {
     if (has_stack_offset(res_info)) {
         assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
                                         op_suffix[get_type_size(res_info)],
                                         -get_stack_offset(res_info),
                                         regular_reg[idx][get_type_size(res_info)]));
-        free_stack(func_info, real_size[get_type_size(res_info)]);
+        free_stack(real_size[get_type_size(res_info)]);
     } else if (has_constant(res_info)) {
         assembly_push_back(code, sprint("\tmov%c   $%d, %%%s",
                                         op_suffix[get_type_size(res_info)],
@@ -216,10 +240,10 @@ void emit_pop(Assembly *code, Value *res_info, Stack *func_info, size_t idx) {
     }
 }
 
-int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
+Value *pop_and_op(Assembly *code, Value *op1, char *op_prefix, Value *op2) {
     assembly_push_back(code, sprint("\t# (pop and) %s", op_prefix));
-    emit_pop(code, op1, func_stack, 0);
-    emit_pop(code, op2, func_stack, 1);
+    emit_pop(code, op1, 0);
+    emit_pop(code, op2, 1);
     Type_size max_type = max(get_type_size(op1), get_type_size(op2));
     signal_extend(code, 0, get_type_size(op1), max_type);
     signal_extend(code, 1, get_type_size(op2), max_type);
@@ -229,13 +253,13 @@ int pop_and_double_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, S
                                     regular_reg[1][max_type],
                                     regular_reg[0][max_type]
     ));
-    return emit_push_register(code, 0, max_type, func_stack);
+    return make_stack_val(emit_push_register(code, 0, max_type), max_type);
 }
 
-int pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
+Value *pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2) {
     assembly_push_back(code, sprint("\t# (pop and) %s", op_prefix));
-    emit_pop(code, op1, func_stack, 0);
-    emit_pop(code, op2, func_stack, 1);
+    emit_pop(code, op1, 0);
+    emit_pop(code, op2, 1);
     Type_size max_type = max(get_type_size(op1), get_type_size(op2));
     signal_extend(code, 0, get_type_size(op1), max_type);
     signal_extend(code, 1, get_type_size(op2), max_type);
@@ -244,20 +268,20 @@ int pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2, S
                                     op_suffix[max_type],
                                     regular_reg[1][max_type]
     ));
-    return emit_push_register(code, 0, max_type, func_stack);
+    return make_stack_val(emit_push_register(code, 0, max_type), max_type);
 }
 
-int pop_and_shift(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
+Value *pop_and_shift(Assembly *code, Value *op1, char *op_prefix, Value *op2) {
     assembly_push_back(code, sprint("\t# (pop and) %s", op_prefix));
-    emit_pop(code, op1, func_stack, 0);
-    emit_pop(code, op2, func_stack, 2);
+    emit_pop(code, op1, 0);
+    emit_pop(code, op2, 2);
     assembly_push_back(code, sprint("\t%s%c   %%%s, %%%s",
                                     op_prefix,
                                     op_suffix[get_type_size(op1)],
                                     regular_reg[2][BYTE],
                                     regular_reg[0][get_type_size(op1)]
     ));
-    return emit_push_register(code, 0, get_type_size(op1), func_stack);
+    return make_stack_val(emit_push_register(code, 0, get_type_size(op1)), get_type_size(op1));
 }
 
 void extend(Assembly *code, char *reg[][4], int idx, Type_size original, Type_size new) {
@@ -278,10 +302,10 @@ void arguments_extend(Assembly *code, int idx, Type_size original, Type_size new
     extend(code, arguments_reg, idx, original, new);
 }
 
-int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_stack) {
+Value *pop_and_set(Assembly *code, Value *op1, char *op, Value *op2) {
     assembly_push_back(code, sprint("\t# (pop and) set"));
-    emit_pop(code, op1, func_stack, 0);
-    emit_pop(code, op2, func_stack, 1);
+    emit_pop(code, op1, 0);
+    emit_pop(code, op2, 1);
     Type_size max_type = max(get_type_size(op1), get_type_size(op2));
     signal_extend(code, 0, get_type_size(op1), max_type);
     signal_extend(code, 1, get_type_size(op2), max_type);
@@ -295,12 +319,12 @@ int pop_and_set(Assembly *code, Value *op1, char *op, Value *op2, Stack *func_st
                                     regular_reg[0][BYTE]
     ));
     signal_extend(code, 0, BYTE, QUAD_WORD);
-    return emit_push_register(code, 0, QUAD_WORD, func_stack);
+    return make_stack_val(emit_push_register(code, 0, QUAD_WORD), QUAD_WORD);
 }
 
-void pop_and_je(Assembly *code, Value *op1, String *if_equal, Stack *func_stack) {
+void pop_and_je(Assembly *code, Value *op1, String *if_equal) {
     assembly_push_back(code, sprint("\t# (pop) cmp and je"));
-    emit_pop(code, op1, func_stack, 0);
+    emit_pop(code, op1, 0);
     assembly_push_back(code, sprint("\tcmp%c   $0, %%%s",
                                     op_suffix[get_type_size(op1)],
                                     regular_reg[0][get_type_size(op1)]
@@ -324,8 +348,8 @@ String *get_end_label(Label *p) {
     return sprint(".E%d", p->end_label);
 }
 
-void free_variables(Stack *stack, Symbol *symbol) {
-    stack->offset -= real_size[symbol->self_type];
+void free_variables(Symbol *symbol) {
+    get_top_scope()->offset -= real_size[symbol->self_type];
 }
 
 void emit_jump(Assembly *code, String *label) {
@@ -336,7 +360,7 @@ void emit_jump(Assembly *code, String *label) {
 void add_while_label(Symbol *cond, Analysis *stat) {
     set_control_label(&label);
     assembly_push_front(cond->assembly, append_char(get_beg_label(&label), ':'));
-    pop_and_je(cond->assembly, &cond->res_info, get_end_label(&label), &get_top_scope(symtab)->stack_info);
+    pop_and_je(cond->assembly, &cond->res_info, get_end_label(&label));
     emit_jump(stat->assembly, get_beg_label(&label));
     assembly_push_back(stat->assembly, append_char(get_end_label(&label), ':'));
 }
@@ -380,7 +404,7 @@ String *get_exit_label(Label *p) {
     return sprint(".F%d", p->exit_label);
 }
 
-void emit_set_func_arguments(Assembly *code, Analysis *func) {
+void emit_set_func_arguments(Assembly *code, Symbol *func) {
     Assembly *al = make_assembly();
     for (int i = 0; i < size(func->param); i++) {
         Value *arg = (Value *) (at(func->param, i));
@@ -404,19 +428,20 @@ void emit_set_func_arguments(Assembly *code, Analysis *func) {
     assembly_append(code, al);
 }
 
-void emit_get_func_arguments(Assembly *code, Analysis *func) {
+void emit_get_func_arguments(Assembly *code) {
+    Symbol *func = symtab;
     Assembly *al = make_assembly();
     for (int i = 0; i < size(func->param); i++) {
         Symbol *arg = symbol_cast(at(func->param, i));
         arg->parent = symtab;
         symtab = arg;
-        arg->stack_info.offset = allocate_stack(&func->stack_info, real_size[arg->self_type], al);
+        arg->offset = allocate_stack(real_size[arg->self_type]);
         assembly_push_back(al, sprint("\t# passing %s %d byte(s) %d(%%rbp)",
-                                      str(arg->name), real_size[arg->self_type], -arg->stack_info.offset));
+                                      str(arg->name), real_size[arg->self_type], -arg->offset));
         assembly_push_back(al, sprint("\tmov%c   %%%s, %d(%%rbp)",
                                       op_suffix[arg->self_type],
                                       arguments_reg[i][arg->self_type],
-                                      -arg->stack_info.offset));
+                                      -arg->offset));
     }
     assembly_append(code, al);
 }
@@ -425,4 +450,41 @@ Symbol *make_symbol() {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
     memset(ptr, 0, sizeof(Symbol));
     return ptr;
+}
+
+void convert_dimension_to_step() {
+    Symbol *s = symtab;
+    Vector *real_step = make_vector();
+
+    add_dimension(s, 1);
+    int bytes = real_size[s->self_type];
+    for (int i = 0; i < size(s->step); i++)
+        bytes *= *(int *) at(s->step, i);
+    // first step means whole size; last step means self_type
+    for (int i = 0; i < size(s->step); i++) {
+        int *value = malloc(sizeof(int));
+        *value = bytes;
+        push_back(real_step, value);
+        bytes /= *(int *) at(s->step, i);
+    }
+    s->step = real_step;
+}
+
+void add_dimension(Symbol *s, int d) {
+    int *value = malloc(sizeof(int));
+    *value = d;
+    push_back(s->step, value);
+}
+
+int pop_and_index(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
+    assembly_push_back(code, sprint("\t# pop and index"));
+    emit_pop(code, op1, 0);
+    emit_pop(code, op2, 2);
+    assembly_push_back(code, sprint("\t%s%c   %%%s, %%%s",
+                                    op_prefix,
+                                    op_suffix[get_type_size(op1)],
+                                    regular_reg[2][BYTE],
+                                    regular_reg[0][get_type_size(op1)]
+    ));
+    return emit_push_register(code, 0, get_type_size(op1));
 }

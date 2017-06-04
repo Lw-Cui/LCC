@@ -7,7 +7,6 @@
 #include <zconf.h>
 #include "lcc.h"
 
-#define TOP_STACK &get_top_scope(symtab)->stack_info
 /*
  *  assembly_append($1.assembly, $3.assembly);
  *  $$ = $1;
@@ -15,20 +14,6 @@
 #define APPEND_ASSEMBLY()\
         assembly_append((yyvsp[(1) - (3)]).assembly, (yyvsp[(3) - (3)]).assembly);\
         (yyval) = (yyvsp[(1) - (3)]);\
-
-/*
- *  set_stack_info(
- *      $$.res_info,
- *      op($$.assembly, $1.res_info, inst, $3.res_info, &get_top_scope(symtab)->stack_info),
- *      max_type);
- */
-#define POP_AND_OP(op, inst)\
-        set_value_info(\
-            &(yyval).res_info, \
-            op((yyval).assembly, &(yyvsp[(1) - (3)]).res_info, inst, &(yyvsp[(3) - (3)]).res_info,\
-                 &get_top_scope(symtab)->stack_info),\
-            max(get_type_size(&(yyvsp[(1) - (3)]).res_info),\
-                 get_type_size(&(yyvsp[(3) - (3)]).res_info)));
 
 extern Symbol *symtab;
 extern Label label;
@@ -69,13 +54,15 @@ primary_expression
 	: IDENTIFIER {
 	    // just appeared in assignment expression
 	    if (!$$.assembly) $$.assembly = make_assembly();
-	    Symbol *var = find_name(symtab, $1.name);
+	    Symbol *var = find_name($1.name);
 	    if (var == NULL) yyerror("%s hasn't been defined yet.", str($1.name));
-	    set_value_info(&$$.res_info, var->stack_info.offset, (Type_size)var->self_type);
+	    set_value_info(&$$.res_info, var->offset, (Type_size)var->self_type);
 	    $$.self_type = var->self_type;
 	    // for func call
 	    $$.name = var->name;
 	    $$.ret_type = var->ret_type;
+	    // for array
+	    $$.step = var->step;
 	}
 	| constant {
 	    // res_info has been set in lexx.l
@@ -129,7 +116,7 @@ postfix_expression
         assembly_push_back($$.assembly, sprint("\tcall   %s", str($1.name)));
         set_value_info(
             &$$.res_info,
-            emit_push_register($$.assembly, 0, (Type_size)$1.ret_type, &get_top_scope(symtab)->stack_info),
+            emit_push_register($$.assembly, 0, (Type_size)$1.ret_type),
             (Type_size)$1.ret_type
         );
         $$.self_type = FUNC_CALL;
@@ -161,7 +148,8 @@ unary_expression
 	| INC_OP unary_expression
 	| DEC_OP unary_expression
 	| unary_operator cast_expression
-	| SIZEOF unary_expression
+	| SIZEOF unary_expression {
+	}
 	| SIZEOF '(' type_name ')'
 	| ALIGNOF '(' type_name ')'
 	;
@@ -179,7 +167,7 @@ cast_expression
 	: unary_expression {
 	    /* avoid pushing `a` into stack when parsing `a = b;` */
 	    if (!$$.assembly) $$.assembly = make_assembly();
-        if ($1.self_type != FUNC_CALL) emit_push_var($$.assembly, &$1.res_info, &get_top_scope(symtab)->stack_info);
+        if ($1.self_type != FUNC_CALL) emit_push_var($$.assembly, &$1.res_info);
         $$.res_info = $1.res_info;
 	}
 	| '(' type_name ')' cast_expression
@@ -189,11 +177,11 @@ multiplicative_expression
 	: cast_expression
 	| multiplicative_expression '*' cast_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_single_op, "mul");
+        $$.res_info = *pop_and_single_op($$.assembly, &$1.res_info, "mul", &$3.res_info);
 	}
 	| multiplicative_expression '/' cast_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_single_op, "div");
+        $$.res_info = *pop_and_single_op($$.assembly, &$1.res_info, "div", &$3.res_info);
 	}
 	| multiplicative_expression '%' cast_expression
 	;
@@ -202,11 +190,11 @@ additive_expression
 	: multiplicative_expression
 	| additive_expression '+' multiplicative_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_double_op, "add");
+        $$.res_info = *pop_and_op($$.assembly, &$1.res_info, "add", &$3.res_info);
 	}
 	| additive_expression '-' multiplicative_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_double_op, "sub");
+        $$.res_info = *pop_and_op($$.assembly, &$1.res_info, "sub", &$3.res_info);
 	}
 	;
 
@@ -214,13 +202,11 @@ shift_expression
 	: additive_expression
 	| shift_expression LEFT_OP additive_expression {
         APPEND_ASSEMBLY();
-	    $3.res_info.size = BYTE;
-        POP_AND_OP(pop_and_shift, "sal");
+        $$.res_info = *pop_and_shift($$.assembly, &$1.res_info, "sal", &$3.res_info);
 	}
 	| shift_expression RIGHT_OP additive_expression {
         APPEND_ASSEMBLY();
-	    $3.res_info.size = BYTE;
-        POP_AND_OP(pop_and_shift, "sar");
+        $$.res_info = *pop_and_shift($$.assembly, &$1.res_info, "sar", &$3.res_info);
 	}
 	;
 
@@ -228,19 +214,19 @@ relational_expression
 	: shift_expression
 	| relational_expression '<' shift_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_set, "setl");
+        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setl", &$3.res_info);
 	}
 	| relational_expression '>' shift_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_set, "setg");
+        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setg", &$3.res_info);
     }
 	| relational_expression LE_OP shift_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_set, "setle");
+        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setle", &$3.res_info);
 	}
 	| relational_expression GE_OP shift_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_set, "setge");
+        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setge", &$3.res_info);
     }
 	;
 
@@ -248,11 +234,11 @@ equality_expression
 	: relational_expression
 	| equality_expression EQ_OP relational_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_set, "sete");
+        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "sete", &$3.res_info);
 	}
 	| equality_expression NE_OP relational_expression {
         APPEND_ASSEMBLY();
-	    POP_AND_OP(pop_and_set, "setne");
+        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setne", &$3.res_info);
 	}
 	;
 
@@ -292,8 +278,7 @@ assignment_expression
 	    // Assignment, not initialization.
 	    assembly_append($1.assembly, $3.assembly);
 	    $$.assembly = $1.assembly;
-        Stack *func_stack = &get_top_scope(symtab)->stack_info;
-        emit_pop($$.assembly, &$3.res_info, func_stack, 0);
+        emit_pop($$.assembly, &$3.res_info, 0);
         assembly_push_back($$.assembly, sprint("\t# assign"));
         assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, %d(%%rbp)",
                                     op_suffix[get_type_size(&$1.res_info)],
@@ -339,12 +324,14 @@ declaration
 	    yyerror("`int;` isn't supported yet.");
 	}
 	| declaration_specifiers init_declarator_list ';' {
-	    if (!in_global_scope(symtab)) {
+	    if (!in_global_scope()) {
 	        symtab->self_type = $1.self_type;
+            // convert to array step
+            if (symtab->step != NULL) convert_dimension_to_step();
             if (!$$.assembly) $$.assembly = make_assembly();
             // $2.assembly stores initialization result, so should be appended firstly
             assembly_append($$.assembly, $2.assembly);
-            emit_local_variable($$.assembly, symtab);
+            emit_local_variable($$.assembly);
             // free for-loop var
             $$.name = symtab->name;
 	    } else if ($2.self_type == FUNC_DECL) {
@@ -369,10 +356,10 @@ declaration_specifiers
 
 init_declarator_list
 	: init_declarator {
-	    if (!in_global_scope(symtab)) {
-            symtab = make_local_symbol(NOT_KNOWN, $1.name, symtab, $1.res_info);
+	    if (!in_global_scope()) {
+            make_local_symbol(NOT_KNOWN, $1.name, $1.step, $1.res_info);
         } else if ($1.self_type == FUNC_DECL) {
-            symtab = make_func_decl_symbol(NOT_KNOWN, $1.name, $1.param, symtab);
+            make_func_decl_symbol(NOT_KNOWN, $1.name, $1.param);
         } else {
             // global var
         }
@@ -384,10 +371,12 @@ init_declarator
 	: declarator '=' initializer {
 	    $$.res_info = $3.res_info;
 	    $$.assembly = $3.assembly;
+	    $$.step = $1.step;
     }
 	| declarator {
 	    // no initializer
 	    $$.res_info.index = -1;
+	    $$.step = $1.step;
 	}
 	;
 
@@ -512,7 +501,10 @@ declarator
 	;
 
 direct_declarator
-	: IDENTIFIER    // used in declaration, not normal expression
+	: IDENTIFIER {
+        // used in declaration, not normal expression
+	    // TODO: for func arguments: int foo(int a[][6]);
+    }
 	| '(' declarator ')'
 	| direct_declarator '[' ']'
 	| direct_declarator '[' '*' ']'
@@ -523,6 +515,10 @@ direct_declarator
 	| direct_declarator '[' type_qualifier_list assignment_expression ']'
 	| direct_declarator '[' type_qualifier_list ']'
 	| direct_declarator '[' assignment_expression ']' {
+        if (!has_constant(&$3.res_info)) yyerror("Dimension of array should be constant");
+        if ($1.step == NULL) $1.step = make_vector();
+	    add_dimension(&$1, get_constant(&$3.res_info));
+	    $$.step = $1.step;
 	}
 	| direct_declarator '(' parameter_type_list ')' {
 	    // normal function declaration
@@ -669,12 +665,7 @@ compound_statement
 	    assembly_append($1.assembly, $2.assembly);
 	    $$.assembly = $1.assembly;
         assembly_push_back($$.assembly, sprint("\t# end compound statement"));
-        Stack *func_stack = &get_top_scope(symtab)->stack_info;
-        while (symtab->self_type != NEW_SCOPE) {
-            free_variables(func_stack, symtab);
-            symtab = symtab->parent;
-        }
-        symtab = symtab->parent;
+        destroy_new_scope();
 	}
 	;
 
@@ -682,7 +673,7 @@ left_brace
     : LEFT_BRACE {
         if (!$$.assembly) $$.assembly = make_assembly();
         assembly_push_back($$.assembly, sprint("\t# start compound statement"));
-        symtab = make_new_scope(symtab);
+        make_new_scope();
     }
     ;
 
@@ -715,7 +706,7 @@ selection_statement
 	: IF '(' expression ')' statement ELSE statement {
         set_control_label(&label);
         // just pop. The top of stack is useless.
-        pop_and_je($3.assembly, &$3.res_info, get_beg_label(&label), &get_top_scope(symtab)->stack_info);
+        pop_and_je($3.assembly, &$3.res_info, get_beg_label(&label));
         assembly_push_front($7.assembly, append_char(get_beg_label(&label), ':'));
         assembly_push_back($7.assembly, append_char(get_end_label(&label), ':'));
         emit_jump($5.assembly, get_end_label(&label));
@@ -725,7 +716,7 @@ selection_statement
 	}
 	| IF '(' expression ')' statement {
         set_control_label(&label);
-        pop_and_je($3.assembly, &$3.res_info, get_end_label(&label), &get_top_scope(symtab)->stack_info);
+        pop_and_je($3.assembly, &$3.res_info, get_end_label(&label));
         assembly_push_back($5.assembly, append_char(get_end_label(&label), ':'));
         assembly_append($3.assembly, $5.assembly);
         $$.assembly = $3.assembly;
@@ -752,7 +743,7 @@ iteration_statement
 	    assembly_append($4.assembly, $6.assembly);
 	    assembly_append($3.assembly, $4.assembly);
 	    $$.assembly = $3.assembly;
-	    free_variables(TOP_STACK, find_name(symtab, $3.name));
+	    free_variables(find_name($3.name));
 	}
 	| FOR '(' declaration expression_statement expression ')' statement {
 	    // for (int i = 5; i < 4; i++) i++;
@@ -761,7 +752,7 @@ iteration_statement
 	    assembly_append($4.assembly, $7.assembly);
 	    assembly_append($3.assembly, $4.assembly);
 	    $$.assembly = $3.assembly;
-	    free_variables(TOP_STACK, find_name(symtab, $3.name));
+	    free_variables(find_name($3.name));
 	}
 	;
 
@@ -772,7 +763,7 @@ jump_statement
 	| RETURN ';'
 	| RETURN expression ';' {
 	    $$ = $2;
-	    emit_pop($$.assembly, &$2.res_info, &get_top_scope(symtab)->stack_info, 0);
+	    emit_pop($$.assembly, &$2.res_info, 0);
 	    emit_jump($$.assembly, get_exit_label(&label));
     }
 	;
@@ -793,18 +784,18 @@ external_declaration
 
 function_definition
 	: function_definition_header compound_statement {
-	    assembly_push_front($2.assembly, sprint("\tsubq   $%d, %%rsp", get_top_scope(symtab)->stack_info.rsp));
+	    assembly_push_front($2.assembly, sprint("\tsubq   $%d, %%rsp", get_top_scope()->rsp));
 	    assembly_append($1.assembly, $2.assembly);
 	    $$ = $1;
 	    // Important: 'return' maybe occurred anywhere
         assembly_push_back($$.assembly, append_char(get_exit_label(&label), ':'));
         // for next usage
 	    set_exit_label(&label);
-        assembly_push_back($$.assembly, sprint("\taddq   $%d, %%rsp", get_top_scope(symtab)->stack_info.rsp));
+        assembly_push_back($$.assembly, sprint("\taddq   $%d, %%rsp", get_top_scope()->rsp));
         assembly_push_back($$.assembly, make_string("\tpopq   %rbp"));
         assembly_push_back($$.assembly, make_string("\tret\n"));
         // goto decl
-        while (symtab->self_type != FUNC_DECL) symtab = symtab->parent;
+        exit_func_def();
 	}
 	;
 
@@ -813,13 +804,13 @@ function_definition_header
     | declaration_specifiers declarator {
         // To support recursion and symtab search
         // decl is the parent of def
-        Symbol *decl = make_func_decl_symbol($1.self_type, $2.name, $2.param, symtab);
-	    symtab = make_func_def_symbol($1.self_type, $2.name, $2.param, decl);
+        make_func_decl_symbol($1.self_type, $2.name, $2.param);
+	    enter_func_def_symbol($1.self_type, $2.name, $2.param);
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    emit_func_signature($$.assembly, $2.name);
         assembly_push_back($$.assembly, make_string("\tpushq  %rbp"));
         assembly_push_back($$.assembly, make_string("\tmovq   %rsp, %rbp"));
-        emit_get_func_arguments($$.assembly, symtab);
+        emit_get_func_arguments($$.assembly);
     }
     ;
 

@@ -115,7 +115,7 @@ void assembly_append(Assembly *p1, Assembly *p2) {
 void emit_local_variable(Assembly *code) {
     if (has_stack_offset(&symtab->res_info))
         emit_pop(code, &symtab->res_info, 0);
-    if (symtab->step == NULL) {
+    if (!is_array()) {
         // normal var
         symtab->offset = allocate_stack(real_size[symtab->self_type]);
         assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
@@ -450,6 +450,10 @@ Symbol *make_symbol() {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
     memset(ptr, 0, sizeof(Symbol));
     return ptr;
+}
+
+int is_array() {
+    return symtab->step != NULL;
 }
 
 void convert_dimension_to_step() {

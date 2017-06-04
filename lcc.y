@@ -15,7 +15,6 @@
         assembly_append((yyvsp[(1) - (3)]).assembly, (yyvsp[(3) - (3)]).assembly);\
         (yyval) = (yyvsp[(1) - (3)]);\
 
-extern Symbol *symtab;
 extern Label label;
 
 int yylex(void);
@@ -325,17 +324,17 @@ declaration
 	}
 	| declaration_specifiers init_declarator_list ';' {
 	    if (!in_global_scope()) {
-	        symtab->self_type = $1.self_type;
+            make_local_symbol($1.self_type, $2.name, $2.step, $2.res_info);
             // convert to array step
-            if (symtab->step != NULL) convert_dimension_to_step();
+            if (is_array()) convert_dimension_to_step();
             if (!$$.assembly) $$.assembly = make_assembly();
             // $2.assembly stores initialization result, so should be appended firstly
             assembly_append($$.assembly, $2.assembly);
             emit_local_variable($$.assembly);
             // free for-loop var
-            $$.name = symtab->name;
+            $$.name = $2.name;
 	    } else if ($2.self_type == FUNC_DECL) {
-	        symtab->ret_type = $1.self_type;
+            make_func_decl_symbol($1.self_type, $2.name, $2.param);
 	    }
 	}
 	| static_assert_declaration
@@ -355,15 +354,7 @@ declaration_specifiers
 	;
 
 init_declarator_list
-	: init_declarator {
-	    if (!in_global_scope()) {
-            make_local_symbol(NOT_KNOWN, $1.name, $1.step, $1.res_info);
-        } else if ($1.self_type == FUNC_DECL) {
-            make_func_decl_symbol(NOT_KNOWN, $1.name, $1.param);
-        } else {
-            // global var
-        }
-	}
+	: init_declarator
 	| init_declarator_list ',' init_declarator
 	;
 

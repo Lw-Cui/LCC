@@ -276,6 +276,8 @@ Symbol *get_top_scope();
 
 int in_global_scope();
 
+int is_array();
+
 #define YYSTYPE Analysis
 
 #include "y.tab.h"

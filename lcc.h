@@ -32,9 +32,10 @@ typedef enum Type {
     FUNC_DECL,     // function declaration: 5
     FUNC_CALL,
     NEW_SCOPE,      // new scope, e.g. function, for, while, if
-    STACK_VAR,
+    // for value
+            STACK_VAR,
     ARRAY,
-    POINTER,
+    ADDRESS,
     CONSTANT,
     NONE,
 } Type;
@@ -124,12 +125,18 @@ int allocate_stack(int);
 void free_stack(int);
 
 typedef struct Value {
+    /*
+        STACK_VAR,
+        ARRAY,
+        ADDRESS,
+        CONSTANT,
+     */
     Type index;
 
     // for constant
     int int_num;
 
-    // for 1 & 3
+    // for anything except constant
     int offset;
 
     // for tmp var
@@ -150,7 +157,7 @@ int is_array(Value *);
 
 int is_cur_sym_array();
 
-int is_pointer(Value *p);
+int is_address(Value *p);
 
 Type_size get_type_size(Value *);
 
@@ -160,7 +167,7 @@ Value *make_stack_val(int offset, Type_size size);
 
 Value *make_array(int offset, Type_size size, Vector *step, int);
 
-Value *make_pointer(int offset, Type_size size);
+Value *make_address(int offset, Type_size size);
 
 Value *clone_value(Value *);
 

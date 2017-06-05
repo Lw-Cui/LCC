@@ -59,6 +59,7 @@ primary_expression
 	        $$.res_info = make_stack_val(var->offset, (Type_size)var->self_type);
 	    } else {
 	        $$.res_info = make_array(var->offset, (Type_size)var->self_type, var->step, 0);
+	        // we should cal address at this time
             $$.res_info = emit_push_array($$.assembly, $$.res_info);
         }
 
@@ -180,8 +181,7 @@ cast_expression
 	    assembly_append($$.assembly, $1.assembly);
         if ($1.self_type != FUNC_CALL && has_stack_offset($1.res_info) && $1.step == NULL) {
             $$.res_info = emit_push_var($$.assembly, $1.res_info);
-        } else {
-            $$.res_info = $1.res_info;
+        } else if($1.self_type != FUNC_CALL && has_stack_offset($1.res_info) && $1.step != NULL) {
         }
 	}
 	| '(' type_name ')' cast_expression
@@ -289,14 +289,18 @@ conditional_expression
 assignment_expression
 	: conditional_expression
 	| unary_expression assignment_operator assignment_expression {
-	    // TODO: extend signal
+	    // TODO: small -> large need signal extend
 	    // Assignment, not initialization.
 	    assembly_append($1.assembly, $3.assembly);
 	    $$.assembly = $1.assembly;
         emit_pop($$.assembly, $3.res_info, 0);
         assembly_push_back($$.assembly, sprint("\t# assign"));
-        if (is_pointer($1.res_info)) {
-            emit_pop($$.assembly, $1.res_info, 1);
+        if (is_address($1.res_info)) {
+            assembly_push_back($$.assembly, sprint("\tmov%c   %d(%%rbp), %%%s",
+                                            op_suffix[get_type_size($1.res_info)],
+                                            -get_stack_offset($1.res_info),
+                                            regular_reg[1][get_type_size($1.res_info)]));
+            free_stack(real_size[get_type_size($1.res_info)]);
             assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, (%%%s)",
                                         op_suffix[get_type_size($1.res_info)],
                                         regular_reg[0][get_type_size($1.res_info)],

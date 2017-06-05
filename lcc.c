@@ -214,8 +214,8 @@ Value *emit_push_var(Assembly *code, Value *res_info) {
                                     op_suffix[get_type_size(res_info)],
                                     regular_reg[0][get_type_size(res_info)],
                                     -offset));
-    if (is_pointer(res_info))
-        return make_pointer(offset, get_type_size(res_info));
+    if (is_address(res_info))
+        return make_address(offset, get_type_size(res_info));
     else if (is_array(res_info))
         return make_array(offset, get_type_size(res_info), res_info->step, res_info->cur_dimension);
     else
@@ -232,23 +232,22 @@ int emit_push_register(Assembly *code, size_t idx, Type_size size) {
 }
 
 void emit_pop(Assembly *code, Value *res_info, size_t idx) {
-    if (has_stack_offset(res_info) && !is_pointer(res_info)) {
+    if (has_stack_offset(res_info) && !is_address(res_info)) {
         assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
                                         op_suffix[get_type_size(res_info)],
                                         -get_stack_offset(res_info),
                                         regular_reg[idx][get_type_size(res_info)]));
         free_stack(real_size[get_type_size(res_info)]);
-        /*
-    } else if (has_stack_offset(res_info) && is_pointer(res_info)) {
+    } else if (has_stack_offset(res_info) && is_address(res_info)) {
+        // TODO: temp ragister
         assembly_push_back(code, sprint("\tmovq   %d(%%rbp), %%%s",
                                         -get_stack_offset(res_info),
-                                        regular_reg[0][QUAD_WORD]));
+                                        regular_reg[2][QUAD_WORD]));
         assembly_push_back(code, sprint("\tmov%c   (%%%s), %%%s",
                                         op_suffix[get_type_size(res_info)],
-                                        regular_reg[0][QUAD_WORD],
+                                        regular_reg[2][QUAD_WORD],
                                         regular_reg[idx][get_type_size(res_info)]));
         free_stack(real_size[get_type_size(res_info)]);
-         */
     } else if (has_constant(res_info)) {
         assembly_push_back(code, sprint("\tmov%c   $%d, %%%s",
                                         op_suffix[get_type_size(res_info)],
@@ -504,7 +503,7 @@ Value *pop_and_index(Assembly *code, Value *op1, Value *op2) {
     if (op1->cur_dimension == size(op1->step) - 1) {
         assembly_push_back(code, sprint("\t# index final res"));
         int offset = emit_push_register(code, 2, get_type_size(op1));
-        return make_pointer(offset, get_type_size(op1));
+        return make_address(offset, get_type_size(op1));
     } else {
         int offset = allocate_stack(real_size[QUAD_WORD]);
         assembly_push_back(code, sprint("\tmovq   %%%s, %d(%%rbp)",
@@ -529,9 +528,9 @@ Value *make_stack_val(int offset, Type_size size) {
     return ptr;
 }
 
-Value *make_pointer(int offset, Type_size size) {
+Value *make_address(int offset, Type_size size) {
     Value *ptr = make_value(offset, size);
-    ptr->index = POINTER;
+    ptr->index = ADDRESS;
     return ptr;
 }
 
@@ -539,6 +538,6 @@ int is_array(Value *p) {
     return p->index == ARRAY;
 }
 
-int is_pointer(Value *p) {
-    return p->index == POINTER;
+int is_address(Value *p) {
+    return p->index == ADDRESS;
 }

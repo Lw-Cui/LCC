@@ -21,6 +21,14 @@ long shift_right(long v, char n) {
 }
 
 int main(int argc) {
+    int array[2][5];
+    array[1][3] = 3;
+    /*
+    short v2;
+    v2 = array[1][3];               // v2 = 3
+     */
+    return array[1][3];
+    /*
     int v1 = getV1(argc);           // v1 = 7
     short v2 = minus(v1, 5);        // v2 = 2
     char v3 = 0;
@@ -35,6 +43,7 @@ int main(int argc) {
     }
     int array[2][5];
     array[1][3] = 3;
+    v2 = array[1][3];               // v2 = 3
     if (v4 == v2) {
         return v4 + 3;              // 7
     } else {
@@ -45,6 +54,7 @@ int main(int argc) {
         if (v5 == 7) return v4 + 3 + v5 + v2 + diff(0, 1);// 14
         else return 0;
     }
+     */
 }
 
 int diff(char a, int b) {

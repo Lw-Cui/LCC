@@ -123,7 +123,7 @@ void assembly_append(Assembly *p1, Assembly *p2) {
 void emit_local_variable(Assembly *code) {
     if (has_stack_offset(symtab->res_info))
         emit_pop(code, symtab->res_info, 0);
-    if (!is_array()) {
+    if (!is_cur_sym_array()) {
         // normal var
         symtab->offset = allocate_stack(real_size[symtab->self_type]);
         assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
@@ -164,21 +164,15 @@ int allocate_stack(int bytes) {
 }
 
 int has_constant(Value *p) {
-    return p->index == 2;
+    return p->index == CONSTANT;
 }
 
 int get_constant(Value *p) {
-    return (p->index == 2 ? p->int_num : 0xFFFF);
+    return (p->index == CONSTANT ? p->int_num : 0xFFFF);
 }
 
 int get_stack_offset(Value *p) {
     return (has_stack_offset(p) ? p->offset : 0xFFFF);
-}
-
-void set_constant(Value *p, int val) {
-    p->index = 2;
-    p->int_num = val;
-    p->size = LONG_WORD;
 }
 
 void free_stack(int byte) {
@@ -186,7 +180,7 @@ void free_stack(int byte) {
 }
 
 int has_stack_offset(Value *p) {
-    return p->index == 1 || p->index == 3;
+    return p->index != CONSTANT && p->index != NONE;
 }
 
 Symbol *find_name(String *name) {
@@ -220,8 +214,10 @@ Value *emit_push_var(Assembly *code, Value *res_info) {
                                     op_suffix[get_type_size(res_info)],
                                     regular_reg[0][get_type_size(res_info)],
                                     -offset));
-    if (is_address(res_info))
+    if (is_pointer(res_info))
         return make_pointer(offset, get_type_size(res_info));
+    else if (is_array(res_info))
+        return make_array(offset, get_type_size(res_info), res_info->step, res_info->cur_dimension);
     else
         return make_stack_val(offset, get_type_size(res_info));
 }
@@ -236,12 +232,23 @@ int emit_push_register(Assembly *code, size_t idx, Type_size size) {
 }
 
 void emit_pop(Assembly *code, Value *res_info, size_t idx) {
-    if (has_stack_offset(res_info)) {
+    if (has_stack_offset(res_info) && !is_pointer(res_info)) {
         assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
                                         op_suffix[get_type_size(res_info)],
                                         -get_stack_offset(res_info),
                                         regular_reg[idx][get_type_size(res_info)]));
         free_stack(real_size[get_type_size(res_info)]);
+        /*
+    } else if (has_stack_offset(res_info) && is_pointer(res_info)) {
+        assembly_push_back(code, sprint("\tmovq   %d(%%rbp), %%%s",
+                                        -get_stack_offset(res_info),
+                                        regular_reg[0][QUAD_WORD]));
+        assembly_push_back(code, sprint("\tmov%c   (%%%s), %%%s",
+                                        op_suffix[get_type_size(res_info)],
+                                        regular_reg[0][QUAD_WORD],
+                                        regular_reg[idx][get_type_size(res_info)]));
+        free_stack(real_size[get_type_size(res_info)]);
+         */
     } else if (has_constant(res_info)) {
         assembly_push_back(code, sprint("\tmov%c   $%d, %%%s",
                                         op_suffix[get_type_size(res_info)],
@@ -382,7 +389,7 @@ Type_size get_type_size(Value *p) {
 Value *make_constant_val(int val) {
     Value *ptr = (Value *) malloc(sizeof(Value));
     memset(ptr, 0, sizeof(Value));
-    ptr->index = 2;
+    ptr->index = CONSTANT;
     ptr->int_num = val;
     ptr->size = LONG_WORD;
     return ptr;
@@ -455,7 +462,7 @@ Symbol *make_symbol() {
     return ptr;
 }
 
-int is_array() {
+int is_cur_sym_array() {
     return symtab->step != NULL;
 }
 
@@ -495,9 +502,9 @@ Value *pop_and_index(Assembly *code, Value *op1, Value *op2) {
                                     regular_reg[2][QUAD_WORD]
     ));
     if (op1->cur_dimension == size(op1->step) - 1) {
-        int offset = allocate_stack(real_size[get_type_size(op1)]);
         assembly_push_back(code, sprint("\t# index final res"));
-        return emit_push_var(code, make_pointer(offset, get_type_size(op1)));
+        int offset = emit_push_register(code, 2, get_type_size(op1));
+        return make_pointer(offset, get_type_size(op1));
     } else {
         int offset = allocate_stack(real_size[QUAD_WORD]);
         assembly_push_back(code, sprint("\tmovq   %%%s, %d(%%rbp)",
@@ -508,8 +515,9 @@ Value *pop_and_index(Assembly *code, Value *op1, Value *op2) {
 }
 
 Value *make_array(int offset, Type_size size, Vector *step, int dimension) {
-    Value *ptr = make_pointer(offset, size);
+    Value *ptr = make_value(offset, size);
     ptr->step = step;
+    ptr->index = ARRAY;
     ptr->cur_dimension = dimension;
     return ptr;
 }
@@ -517,17 +525,20 @@ Value *make_array(int offset, Type_size size, Vector *step, int dimension) {
 
 Value *make_stack_val(int offset, Type_size size) {
     Value *ptr = make_value(offset, size);
-    ptr->index = 1;
+    ptr->index = STACK_VAR;
     return ptr;
 }
 
 Value *make_pointer(int offset, Type_size size) {
     Value *ptr = make_value(offset, size);
-    ptr->index = 3;
+    ptr->index = POINTER;
     return ptr;
 }
 
-int is_address(Value *p) {
-    return p->index == 3;
+int is_array(Value *p) {
+    return p->index == ARRAY;
 }
 
+int is_pointer(Value *p) {
+    return p->index == POINTER;
+}

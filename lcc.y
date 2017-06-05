@@ -295,7 +295,7 @@ assignment_expression
 	    $$.assembly = $1.assembly;
         emit_pop($$.assembly, $3.res_info, 0);
         assembly_push_back($$.assembly, sprint("\t# assign"));
-        if (is_address($1.res_info)) {
+        if (is_pointer($1.res_info)) {
             emit_pop($$.assembly, $1.res_info, 1);
             assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, (%%%s)",
                                         op_suffix[get_type_size($1.res_info)],
@@ -350,7 +350,7 @@ declaration
 	    if (!in_global_scope()) {
             make_local_symbol($1.self_type, $2.name, $2.step, $2.res_info);
             // convert to array step
-            if (is_array()) convert_dimension_to_step();
+            if (is_cur_sym_array()) convert_dimension_to_step();
             if (!$$.assembly) $$.assembly = make_assembly();
             // $2.assembly stores initialization result, so should be appended firstly
             assembly_append($$.assembly, $2.assembly);
@@ -391,7 +391,7 @@ init_declarator
 	| declarator {
 	    // no initializer
 	    $$.res_info = make_value(0, 0);
-	    $$.res_info->index = -1;
+	    $$.res_info->index = NONE;
 	    $$.step = $1.step;
 	}
 	;

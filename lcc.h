@@ -32,7 +32,11 @@ typedef enum Type {
     FUNC_DECL,     // function declaration: 5
     FUNC_CALL,
     NEW_SCOPE,      // new scope, e.g. function, for, while, if
-    NOT_KNOWN,
+    STACK_VAR,
+    ARRAY,
+    POINTER,
+    CONSTANT,
+    NONE,
 } Type;
 
 static int real_size[] = {
@@ -120,10 +124,7 @@ int allocate_stack(int);
 void free_stack(int);
 
 typedef struct Value {
-    // 1: tmp var on stack
-    // 2: constant
-    // 3: addr
-    int index;
+    Type index;
 
     // for constant
     int int_num;
@@ -145,7 +146,11 @@ Value *make_constant_val(int val);
 
 int has_stack_offset(Value *);
 
-int is_address(Value *);
+int is_array(Value *);
+
+int is_cur_sym_array();
+
+int is_pointer(Value *p);
 
 Type_size get_type_size(Value *);
 
@@ -160,8 +165,6 @@ Value *make_pointer(int offset, Type_size size);
 Value *clone_value(Value *);
 
 int has_constant(Value *);
-
-void set_constant(Value *, int val);
 
 int get_constant(Value *);
 
@@ -273,8 +276,6 @@ Symbol *find_name(String *name);
 Symbol *get_top_scope();
 
 int in_global_scope();
-
-int is_array();
 
 #define YYSTYPE Analysis
 

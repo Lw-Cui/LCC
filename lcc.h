@@ -113,14 +113,11 @@ void assembly_push_front(Assembly *ptr, String *code);
 
 void assembly_output(Assembly *ptr);
 
-
 int allocate_stack(int);
 
 int allocate_stack(int);
 
 void free_stack(int);
-
-#define INVALID_OFFSET 0xFFFFFF
 
 typedef struct Value {
     // 1: tmp var on stack
@@ -141,6 +138,8 @@ typedef struct Value {
     Vector *step;
     int cur_dimension;
 } Value;
+
+Value *make_value(int offset, Type_size size);
 
 Value *make_constant_val(int val);
 
@@ -165,7 +164,6 @@ int has_constant(Value *);
 void set_constant(Value *, int val);
 
 int get_constant(Value *);
-
 
 typedef struct Label {
     int beg_label;
@@ -205,7 +203,7 @@ typedef struct Analysis {
     Vector *step;
 
     // for var usage
-    Value res_info;
+    Value *res_info;
 } Analysis;
 
 typedef Analysis Symbol;
@@ -262,7 +260,7 @@ void exit_func_def();
 
 void make_func_decl_symbol(Type ret_type, String *name, Vector *param);
 
-void make_local_symbol(Type, String *name, Vector *step, Value res_info);
+void make_local_symbol(Type, String *name, Vector *step, Value *res_info);
 
 Symbol *make_param_symbol(Type, String *name);
 

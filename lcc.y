@@ -56,10 +56,10 @@ primary_expression
 	    Symbol *var = find_name($1.name);
 	    if (var == NULL) yyerror("%s hasn't been defined yet.", str($1.name));
 	    if (var->step == NULL) {
-	        $$.res_info = *make_stack_val(var->offset, (Type_size)var->self_type);
+	        $$.res_info = make_stack_val(var->offset, (Type_size)var->self_type);
 	    } else {
-	        $$.res_info = *make_array(var->offset, (Type_size)var->self_type, var->step, 0);
-            $$.res_info = *emit_push_array($$.assembly, &$$.res_info);
+	        $$.res_info = make_array(var->offset, (Type_size)var->self_type, var->step, 0);
+            $$.res_info = emit_push_array($$.assembly, $$.res_info);
         }
 
 	    $$.self_type = var->self_type;
@@ -114,7 +114,7 @@ postfix_expression
 	    assembly_append($$.assembly, $1.assembly);
 	    assembly_append($$.assembly, $3.assembly);
 
-	    $$.res_info = *pop_and_index($$.assembly, &$1.res_info, &$3.res_info);
+	    $$.res_info = pop_and_index($$.assembly, $1.res_info, $3.res_info);
 	}
 	| postfix_expression '(' ')'
 	| postfix_expression '(' argument_expression_list ')' {
@@ -123,7 +123,7 @@ postfix_expression
 	    emit_set_func_arguments($$.assembly, &$3);
 	    if ($1.self_type != FUNC_DECL && $1.self_type != DFUNC) yyerror("Don't find func name %s", str($1.name));
         assembly_push_back($$.assembly, sprint("\tcall   %s", str($1.name)));
-        $$.res_info = *make_stack_val(
+        $$.res_info = make_stack_val(
             emit_push_register($$.assembly, 0, (Type_size)$1.ret_type),
             (Type_size)$1.ret_type
         );
@@ -142,12 +142,12 @@ argument_expression_list
 	    // first (actual) argument, different from 'parameter_list' used in function declaration
         if ($$.param == NULL) $$.param = make_vector();
         $$.assembly = $1.assembly;
-        push_back($$.param, clone_value(&$1.res_info));
+        push_back($$.param, clone_value($1.res_info));
 	}
 	| argument_expression_list ',' assignment_expression {
 	    assembly_append($1.assembly, $3.assembly);
         $$.assembly = $1.assembly;
-        push_back($$.param, clone_value(&$3.res_info));
+        push_back($$.param, clone_value($3.res_info));
 	}
 	;
 
@@ -178,8 +178,8 @@ cast_expression
 	    // while array has been pushed in `primary_expression`
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    assembly_append($$.assembly, $1.assembly);
-        if ($1.self_type != FUNC_CALL && has_stack_offset(&$1.res_info) && $1.step == NULL) {
-            $$.res_info = *emit_push_var($$.assembly, &$1.res_info);
+        if ($1.self_type != FUNC_CALL && has_stack_offset($1.res_info) && $1.step == NULL) {
+            $$.res_info = emit_push_var($$.assembly, $1.res_info);
         } else {
             $$.res_info = $1.res_info;
         }
@@ -191,11 +191,11 @@ multiplicative_expression
 	: cast_expression
 	| multiplicative_expression '*' cast_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_single_op($$.assembly, &$1.res_info, "mul", &$3.res_info);
+        $$.res_info = pop_and_single_op($$.assembly, $1.res_info, "mul", $3.res_info);
 	}
 	| multiplicative_expression '/' cast_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_single_op($$.assembly, &$1.res_info, "div", &$3.res_info);
+        $$.res_info = pop_and_single_op($$.assembly, $1.res_info, "div", $3.res_info);
 	}
 	| multiplicative_expression '%' cast_expression
 	;
@@ -204,11 +204,11 @@ additive_expression
 	: multiplicative_expression
 	| additive_expression '+' multiplicative_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_op($$.assembly, &$1.res_info, "add", &$3.res_info);
+        $$.res_info = pop_and_op($$.assembly, $1.res_info, "add", $3.res_info);
 	}
 	| additive_expression '-' multiplicative_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_op($$.assembly, &$1.res_info, "sub", &$3.res_info);
+        $$.res_info = pop_and_op($$.assembly, $1.res_info, "sub", $3.res_info);
 	}
 	;
 
@@ -216,11 +216,11 @@ shift_expression
 	: additive_expression
 	| shift_expression LEFT_OP additive_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_shift($$.assembly, &$1.res_info, "sal", &$3.res_info);
+        $$.res_info = pop_and_shift($$.assembly, $1.res_info, "sal", $3.res_info);
 	}
 	| shift_expression RIGHT_OP additive_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_shift($$.assembly, &$1.res_info, "sar", &$3.res_info);
+        $$.res_info = pop_and_shift($$.assembly, $1.res_info, "sar", $3.res_info);
 	}
 	;
 
@@ -228,19 +228,19 @@ relational_expression
 	: shift_expression
 	| relational_expression '<' shift_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setl", &$3.res_info);
+        $$.res_info = pop_and_set($$.assembly, $1.res_info, "setl", $3.res_info);
 	}
 	| relational_expression '>' shift_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setg", &$3.res_info);
+        $$.res_info = pop_and_set($$.assembly, $1.res_info, "setg", $3.res_info);
     }
 	| relational_expression LE_OP shift_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setle", &$3.res_info);
+        $$.res_info = pop_and_set($$.assembly, $1.res_info, "setle", $3.res_info);
 	}
 	| relational_expression GE_OP shift_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setge", &$3.res_info);
+        $$.res_info = pop_and_set($$.assembly, $1.res_info, "setge", $3.res_info);
     }
 	;
 
@@ -248,11 +248,11 @@ equality_expression
 	: relational_expression
 	| equality_expression EQ_OP relational_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "sete", &$3.res_info);
+        $$.res_info = pop_and_set($$.assembly, $1.res_info, "sete", $3.res_info);
 	}
 	| equality_expression NE_OP relational_expression {
         APPEND_ASSEMBLY();
-        $$.res_info = *pop_and_set($$.assembly, &$1.res_info, "setne", &$3.res_info);
+        $$.res_info = pop_and_set($$.assembly, $1.res_info, "setne", $3.res_info);
 	}
 	;
 
@@ -289,22 +289,23 @@ conditional_expression
 assignment_expression
 	: conditional_expression
 	| unary_expression assignment_operator assignment_expression {
+	    // TODO: extend signal
 	    // Assignment, not initialization.
 	    assembly_append($1.assembly, $3.assembly);
 	    $$.assembly = $1.assembly;
-        emit_pop($$.assembly, &$3.res_info, 0);
+        emit_pop($$.assembly, $3.res_info, 0);
         assembly_push_back($$.assembly, sprint("\t# assign"));
-        if (is_address(&$1.res_info)) {
-            emit_pop($$.assembly, &$1.res_info, 1);
+        if (is_address($1.res_info)) {
+            emit_pop($$.assembly, $1.res_info, 1);
             assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, (%%%s)",
-                                        op_suffix[get_type_size(&$1.res_info)],
-                                        regular_reg[0][get_type_size(&$1.res_info)],
-                                        regular_reg[1][get_type_size(&$1.res_info)]));
+                                        op_suffix[get_type_size($1.res_info)],
+                                        regular_reg[0][get_type_size($1.res_info)],
+                                        regular_reg[1][get_type_size($1.res_info)]));
         } else {
             assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, %d(%%rbp)",
-                                        op_suffix[get_type_size(&$1.res_info)],
-                                        regular_reg[0][get_type_size(&$1.res_info)],
-                                        -get_stack_offset(&$1.res_info)));
+                                        op_suffix[get_type_size($1.res_info)],
+                                        regular_reg[0][get_type_size($1.res_info)],
+                                        -get_stack_offset($1.res_info)));
         }
 	}
 	;
@@ -389,7 +390,8 @@ init_declarator
     }
 	| declarator {
 	    // no initializer
-	    $$.res_info.index = -1;
+	    $$.res_info = make_value(0, 0);
+	    $$.res_info->index = -1;
 	    $$.step = $1.step;
 	}
 	;
@@ -529,9 +531,9 @@ direct_declarator
 	| direct_declarator '[' type_qualifier_list assignment_expression ']'
 	| direct_declarator '[' type_qualifier_list ']'
 	| direct_declarator '[' assignment_expression ']' {
-        if (!has_constant(&$3.res_info)) yyerror("Dimension of array should be constant");
+        if (!has_constant($3.res_info)) yyerror("Dimension of array should be constant");
         if ($1.step == NULL) $1.step = make_vector();
-	    add_dimension(&$1, get_constant(&$3.res_info));
+	    add_dimension(&$1, get_constant($3.res_info));
 	    $$.step = $1.step;
 	}
 	| direct_declarator '(' parameter_type_list ')' {
@@ -720,7 +722,7 @@ selection_statement
 	: IF '(' expression ')' statement ELSE statement {
         set_control_label(&label);
         // just pop. The top of stack is useless.
-        pop_and_je($3.assembly, &$3.res_info, get_beg_label(&label));
+        pop_and_je($3.assembly, $3.res_info, get_beg_label(&label));
         assembly_push_front($7.assembly, append_char(get_beg_label(&label), ':'));
         assembly_push_back($7.assembly, append_char(get_end_label(&label), ':'));
         emit_jump($5.assembly, get_end_label(&label));
@@ -730,7 +732,7 @@ selection_statement
 	}
 	| IF '(' expression ')' statement {
         set_control_label(&label);
-        pop_and_je($3.assembly, &$3.res_info, get_end_label(&label));
+        pop_and_je($3.assembly, $3.res_info, get_end_label(&label));
         assembly_push_back($5.assembly, append_char(get_end_label(&label), ':'));
         assembly_append($3.assembly, $5.assembly);
         $$.assembly = $3.assembly;
@@ -777,7 +779,7 @@ jump_statement
 	| RETURN ';'
 	| RETURN expression ';' {
 	    $$ = $2;
-	    emit_pop($$.assembly, &$2.res_info, 0);
+	    emit_pop($$.assembly, $2.res_info, 0);
 	    emit_jump($$.assembly, get_exit_label(&label));
     }
 	;

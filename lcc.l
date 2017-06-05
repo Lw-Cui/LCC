@@ -88,19 +88,19 @@ static int check_type(void);
 
 {HP}{H}+{IS}? {
     // hex: 0FFF
-    yylval.res_info = *make_constant_val(atoi(yytext));
+    yylval.res_info = make_constant_val(atoi(yytext));
     return I_CONSTANT;
 }
 
 {NZ}{D}*{IS}? {
     // 123
-    yylval.res_info = *make_constant_val(atoi(yytext));
+    yylval.res_info = make_constant_val(atoi(yytext));
     return I_CONSTANT;
  }
 
 "0"{O}*{IS}? {
     //  Oct: 0123u
-    yylval.res_info = *make_constant_val(atoi(yytext));
+    yylval.res_info = make_constant_val(atoi(yytext));
     return I_CONSTANT;
 }
 

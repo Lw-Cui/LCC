@@ -11,6 +11,14 @@ Symbol *symbol_cast(void *ptr) {
     return (Symbol *) ptr;
 }
 
+Value *make_value(int offset, Type_size size) {
+    Value *p = (Value *) malloc(sizeof(Value));
+    memset(p, 0, sizeof(Value));
+    p->offset = offset;
+    p->size = size;
+    return p;
+}
+
 static Symbol *make_func_symbol(Type ret_type, String *name, Vector *param) {
     Symbol *ptr = make_symbol();
     ptr->ret_type = ret_type;
@@ -37,7 +45,7 @@ void make_func_decl_symbol(Type ret_type, String *name, Vector *param) {
 }
 
 
-void make_local_symbol(Type self_type, String *name, Vector *step, Value res_info) {
+void make_local_symbol(Type self_type, String *name, Vector *step, Value *res_info) {
     Symbol *ptr = make_symbol();
     ptr->parent = symtab;
     symtab = ptr;
@@ -113,8 +121,8 @@ void assembly_append(Assembly *p1, Assembly *p2) {
 }
 
 void emit_local_variable(Assembly *code) {
-    if (has_stack_offset(&symtab->res_info))
-        emit_pop(code, &symtab->res_info, 0);
+    if (has_stack_offset(symtab->res_info))
+        emit_pop(code, symtab->res_info, 0);
     if (!is_array()) {
         // normal var
         symtab->offset = allocate_stack(real_size[symtab->self_type]);
@@ -128,13 +136,13 @@ void emit_local_variable(Assembly *code) {
                                         str(symtab->name), *(int *) at(symtab->step, 0), -symtab->offset));
     }
     // initialization
-    if (has_constant(&symtab->res_info)) {
+    if (has_constant(symtab->res_info)) {
         assembly_push_back(code, sprint("\tmov%c   $%d, %d(%%rbp)",
                                         op_suffix[symtab->self_type],
-                                        get_constant(&symtab->res_info),
+                                        get_constant(symtab->res_info),
                                         -symtab->offset));
-    } else if (has_stack_offset(&symtab->res_info)) {
-        signal_extend(code, 0, get_type_size(&symtab->res_info), (Type_size) symtab->self_type);
+    } else if (has_stack_offset(symtab->res_info)) {
+        signal_extend(code, 0, get_type_size(symtab->res_info), (Type_size) symtab->self_type);
         assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
                                         op_suffix[symtab->self_type],
                                         regular_reg[0][symtab->self_type],
@@ -362,7 +370,7 @@ void emit_jump(Assembly *code, String *label) {
 void add_while_label(Symbol *cond, Analysis *stat) {
     set_control_label(&label);
     assembly_push_front(cond->assembly, append_char(get_beg_label(&label), ':'));
-    pop_and_je(cond->assembly, &cond->res_info, get_end_label(&label));
+    pop_and_je(cond->assembly, cond->res_info, get_end_label(&label));
     emit_jump(stat->assembly, get_beg_label(&label));
     assembly_push_back(stat->assembly, append_char(get_end_label(&label), ':'));
 }
@@ -443,6 +451,7 @@ void emit_get_func_arguments(Assembly *code) {
 Symbol *make_symbol() {
     Symbol *ptr = symbol_cast(malloc(sizeof(Symbol)));
     memset(ptr, 0, sizeof(Symbol));
+    ptr->res_info = make_value(0, 0);
     return ptr;
 }
 
@@ -505,13 +514,6 @@ Value *make_array(int offset, Type_size size, Vector *step, int dimension) {
     return ptr;
 }
 
-static Value *make_value(int offset, Type_size size) {
-    Value *p = (Value *) malloc(sizeof(Value));
-    memset(p, 0, sizeof(Value));
-    p->offset = offset;
-    p->size = size;
-    return p;
-}
 
 Value *make_stack_val(int offset, Type_size size) {
     Value *ptr = make_value(offset, size);

@@ -212,7 +212,10 @@ Value *emit_push_var(Assembly *code, Value *res_info) {
                                     op_suffix[get_type_size(res_info)],
                                     regular_reg[0][get_type_size(res_info)],
                                     -offset));
-    return make_stack_val(offset, get_type_size(res_info));
+    if (is_address(res_info))
+        return make_pointer(offset, get_type_size(res_info));
+    else
+        return make_stack_val(offset, get_type_size(res_info));
 }
 
 int emit_push_register(Assembly *code, size_t idx, Type_size size) {
@@ -502,7 +505,7 @@ Value *make_array(int offset, Type_size size, Vector *step, int dimension) {
     return ptr;
 }
 
-static Value * make_value(int offset, Type_size size) {
+static Value *make_value(int offset, Type_size size) {
     Value *p = (Value *) malloc(sizeof(Value));
     memset(p, 0, sizeof(Value));
     p->offset = offset;
@@ -520,5 +523,9 @@ Value *make_pointer(int offset, Type_size size) {
     Value *ptr = make_value(offset, size);
     ptr->index = 3;
     return ptr;
+}
+
+int is_address(Value *p) {
+    return p->index == 3;
 }
 

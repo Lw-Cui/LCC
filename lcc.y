@@ -294,10 +294,18 @@ assignment_expression
 	    $$.assembly = $1.assembly;
         emit_pop($$.assembly, &$3.res_info, 0);
         assembly_push_back($$.assembly, sprint("\t# assign"));
-        assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, %d(%%rbp)",
-                                    op_suffix[get_type_size(&$1.res_info)],
-                                    regular_reg[0][get_type_size(&$1.res_info)],
-                                    -get_stack_offset(&$1.res_info)));
+        if (is_address(&$1.res_info)) {
+            emit_pop($$.assembly, &$1.res_info, 1);
+            assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, (%%%s)",
+                                        op_suffix[get_type_size(&$1.res_info)],
+                                        regular_reg[0][get_type_size(&$1.res_info)],
+                                        regular_reg[1][get_type_size(&$1.res_info)]));
+        } else {
+            assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, %d(%%rbp)",
+                                        op_suffix[get_type_size(&$1.res_info)],
+                                        regular_reg[0][get_type_size(&$1.res_info)],
+                                        -get_stack_offset(&$1.res_info)));
+        }
 	}
 	;
 

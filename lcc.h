@@ -144,6 +144,14 @@ typedef struct Value {
 
 Value *make_constant_val(int val);
 
+int has_stack_offset(Value *);
+
+int is_address(Value *);
+
+Type_size get_type_size(Value *);
+
+int get_stack_offset(Value *);
+
 Value *make_stack_val(int offset, Type_size size);
 
 Value *make_array(int offset, Type_size size, Vector *step, int);
@@ -158,11 +166,6 @@ void set_constant(Value *, int val);
 
 int get_constant(Value *);
 
-int has_stack_offset(Value *);
-
-Type_size get_type_size(Value *);
-
-int get_stack_offset(Value *);
 
 typedef struct Label {
     int beg_label;

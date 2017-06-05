@@ -34,7 +34,7 @@ int main(int argc) {
         int tmp = 0;
     }
     int array[2][5];
-    array[1][3];
+    array[1][3] = 3;
     if (v4 == v2) {
         return v4 + 3;              // 7
     } else {

@@ -55,7 +55,13 @@ primary_expression
 	    if (!$$.assembly) $$.assembly = make_assembly();
 	    Symbol *var = find_name($1.name);
 	    if (var == NULL) yyerror("%s hasn't been defined yet.", str($1.name));
-	    set_value_info(&$$.res_info, var->offset, (Type_size)var->self_type);
+	    if (var->step == NULL) {
+	        $$.res_info = *make_stack_val(var->offset, (Type_size)var->self_type);
+	    } else {
+	        $$.res_info = *make_array(var->offset, (Type_size)var->self_type, var->step, 0);
+            $$.res_info = *emit_push_array($$.assembly, &$$.res_info);
+        }
+
 	    $$.self_type = var->self_type;
 	    // for func call
 	    $$.name = var->name;
@@ -104,7 +110,11 @@ generic_association
 postfix_expression
 	: primary_expression
 	| postfix_expression '[' expression ']' {
-	    // TODO: Array
+	    if (!$$.assembly) $$.assembly = make_assembly();
+	    assembly_append($$.assembly, $1.assembly);
+	    assembly_append($$.assembly, $3.assembly);
+
+	    $$.res_info = *pop_and_index($$.assembly, &$1.res_info, &$3.res_info);
 	}
 	| postfix_expression '(' ')'
 	| postfix_expression '(' argument_expression_list ')' {
@@ -113,8 +123,7 @@ postfix_expression
 	    emit_set_func_arguments($$.assembly, &$3);
 	    if ($1.self_type != FUNC_DECL && $1.self_type != DFUNC) yyerror("Don't find func name %s", str($1.name));
         assembly_push_back($$.assembly, sprint("\tcall   %s", str($1.name)));
-        set_value_info(
-            &$$.res_info,
+        $$.res_info = *make_stack_val(
             emit_push_register($$.assembly, 0, (Type_size)$1.ret_type),
             (Type_size)$1.ret_type
         );
@@ -164,10 +173,16 @@ unary_operator
 
 cast_expression
 	: unary_expression {
-	    /* avoid pushing `a` into stack when parsing `a = b;` */
+	    // avoid pushing `a` into stack when parsing `a = b;`
+	    // just push normal left-expression into stack
+	    // while array has been pushed in `primary_expression`
 	    if (!$$.assembly) $$.assembly = make_assembly();
-        if ($1.self_type != FUNC_CALL) emit_push_var($$.assembly, &$1.res_info);
-        $$.res_info = $1.res_info;
+	    assembly_append($$.assembly, $1.assembly);
+        if ($1.self_type != FUNC_CALL && has_stack_offset(&$1.res_info) && $1.step == NULL) {
+            $$.res_info = *emit_push_var($$.assembly, &$1.res_info);
+        } else {
+            $$.res_info = $1.res_info;
+        }
 	}
 	| '(' type_name ')' cast_expression
 	;

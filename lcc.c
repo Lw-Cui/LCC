@@ -173,19 +173,12 @@ void set_constant(Value *p, int val) {
     p->size = LONG_WORD;
 }
 
-void set_value_info(Value *p, int offset, Type_size size) {
-    if (offset == INVALID_OFFSET) return;
-    p->index = 1;
-    p->offset = offset;
-    p->size = size;
-}
-
 void free_stack(int byte) {
     get_top_scope()->offset -= byte;
 }
 
 int has_stack_offset(Value *p) {
-    return p->index == 1;
+    return p->index == 1 || p->index == 3;
 }
 
 Symbol *find_name(String *name) {
@@ -196,24 +189,30 @@ Symbol *find_name(String *name) {
     return s;
 }
 
-void emit_push_var(Assembly *code, Value *res_info) {
-    //Noting to do with res_info when it stores real value
-    // TODO: BUG - if (has_stack_offset(res_info) && size(res_info->step) == 1) {
-    if (has_stack_offset(res_info) && res_info->step == NULL) {
-        int offset = allocate_stack(real_size[get_type_size(res_info)]);
-        assembly_push_back(code, sprint("\t# push %d(%%rbp)", -offset));
-        assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
-                                        op_suffix[get_type_size(res_info)],
-                                        -get_stack_offset(res_info),
-                                        regular_reg[0][get_type_size(res_info)]));
-        assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
-                                        op_suffix[get_type_size(res_info)],
-                                        regular_reg[0][get_type_size(res_info)],
-                                        -offset));
-        set_value_info(res_info, offset, get_type_size(res_info));
-    } else {
-        // TODO: array
-    }
+Value *emit_push_array(Assembly *code, Value *res_info) {
+    int offset = allocate_stack(real_size[QUAD_WORD]);
+    assembly_push_back(code, sprint("\t# push %d(%%rbp)", -offset));
+    assembly_push_back(code, sprint("\tleaq   %d(%%rbp), %%%s",
+                                    -get_stack_offset(res_info),
+                                    regular_reg[0][QUAD_WORD]));
+    assembly_push_back(code, sprint("\tmovq   %%%s, %d(%%rbp)",
+                                    regular_reg[0][QUAD_WORD],
+                                    -offset));
+    return make_array(offset, QUAD_WORD, res_info->step, 0);
+}
+
+Value *emit_push_var(Assembly *code, Value *res_info) {
+    int offset = allocate_stack(real_size[get_type_size(res_info)]);
+    assembly_push_back(code, sprint("\t# push %d(%%rbp)", -offset));
+    assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
+                                    op_suffix[get_type_size(res_info)],
+                                    -get_stack_offset(res_info),
+                                    regular_reg[0][get_type_size(res_info)]));
+    assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
+                                    op_suffix[get_type_size(res_info)],
+                                    regular_reg[0][get_type_size(res_info)],
+                                    -offset));
+    return make_stack_val(offset, get_type_size(res_info));
 }
 
 int emit_push_register(Assembly *code, size_t idx, Type_size size) {
@@ -374,15 +373,7 @@ Value *make_constant_val(int val) {
     memset(ptr, 0, sizeof(Value));
     ptr->index = 2;
     ptr->int_num = val;
-    return ptr;
-}
-
-Value *make_stack_val(int offset, Type_size size) {
-    Value *ptr = (Value *) malloc(sizeof(Value));
-    memset(ptr, 0, sizeof(Value));
-    ptr->index = 1;
-    ptr->offset = offset;
-    ptr->size = size;
+    ptr->size = LONG_WORD;
     return ptr;
 }
 
@@ -480,15 +471,54 @@ void add_dimension(Symbol *s, int d) {
     push_back(s->step, value);
 }
 
-int pop_and_index(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *func_stack) {
+Value *pop_and_index(Assembly *code, Value *op1, Value *op2) {
+    // pop order doesn't matter -- it guarantees that all will be pop.
     assembly_push_back(code, sprint("\t# pop and index"));
-    emit_pop(code, op1, 0);
-    emit_pop(code, op2, 2);
-    assembly_push_back(code, sprint("\t%s%c   %%%s, %%%s",
-                                    op_prefix,
-                                    op_suffix[get_type_size(op1)],
-                                    regular_reg[2][BYTE],
-                                    regular_reg[0][get_type_size(op1)]
+    op2 = pop_and_single_op(code, op2, "mul", make_constant_val(*(int *) at(op1->step, ++op1->cur_dimension)));
+    emit_pop(code, op2, 0);
+    signal_extend(code, 0, op2->size, QUAD_WORD);
+    emit_pop(code, op1, 2); // array
+    assembly_push_back(code, sprint("\taddq   %%%s, %%%s",
+                                    regular_reg[0][QUAD_WORD],
+                                    regular_reg[2][QUAD_WORD]
     ));
-    return emit_push_register(code, 0, get_type_size(op1));
+    if (op1->cur_dimension == size(op1->step) - 1) {
+        int offset = allocate_stack(real_size[get_type_size(op1)]);
+        assembly_push_back(code, sprint("\t# index final res"));
+        return emit_push_var(code, make_pointer(offset, get_type_size(op1)));
+    } else {
+        int offset = allocate_stack(real_size[QUAD_WORD]);
+        assembly_push_back(code, sprint("\tmovq   %%%s, %d(%%rbp)",
+                                        regular_reg[2][QUAD_WORD],
+                                        -offset));
+        return make_array(offset, op1->size, op1->step, op1->cur_dimension);
+    }
 }
+
+Value *make_array(int offset, Type_size size, Vector *step, int dimension) {
+    Value *ptr = make_pointer(offset, size);
+    ptr->step = step;
+    ptr->cur_dimension = dimension;
+    return ptr;
+}
+
+static Value * make_value(int offset, Type_size size) {
+    Value *p = (Value *) malloc(sizeof(Value));
+    memset(p, 0, sizeof(Value));
+    p->offset = offset;
+    p->size = size;
+    return p;
+}
+
+Value *make_stack_val(int offset, Type_size size) {
+    Value *ptr = make_value(offset, size);
+    ptr->index = 1;
+    return ptr;
+}
+
+Value *make_pointer(int offset, Type_size size) {
+    Value *ptr = make_value(offset, size);
+    ptr->index = 3;
+    return ptr;
+}
+

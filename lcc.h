@@ -113,18 +113,6 @@ void assembly_push_front(Assembly *ptr, String *code);
 
 void assembly_output(Assembly *ptr);
 
-#define INVALID_OFFSET 0xFFFFFF
-
-typedef struct Stack {
-    // normal offset in stack
-    int offset;
-
-    // array-related
-    Vector *step;
-
-    // top of whole stack
-    int rsp;
-} Stack;
 
 int allocate_stack(int);
 
@@ -132,19 +120,24 @@ int allocate_stack(int);
 
 void free_stack(int);
 
+#define INVALID_OFFSET 0xFFFFFF
 
 typedef struct Value {
-    // 1: tmp var on stack 2: constant
+    // 1: tmp var on stack
+    // 2: constant
+    // 3: addr
     int index;
 
     // for constant
     int int_num;
 
-    // for tmp var
+    // for 1 & 3
     int offset;
+
+    // for tmp var
     Type_size size;
 
-    // for array
+    // for addr
     Vector *step;
     int cur_dimension;
 } Value;
@@ -152,6 +145,10 @@ typedef struct Value {
 Value *make_constant_val(int val);
 
 Value *make_stack_val(int offset, Type_size size);
+
+Value *make_array(int offset, Type_size size, Vector *step, int);
+
+Value *make_pointer(int offset, Type_size size);
 
 Value *clone_value(Value *);
 
@@ -162,8 +159,6 @@ void set_constant(Value *, int val);
 int get_constant(Value *);
 
 int has_stack_offset(Value *);
-
-void set_value_info(Value *, int offset, Type_size size);
 
 Type_size get_type_size(Value *);
 
@@ -226,7 +221,7 @@ void pop_and_je(Assembly *code, Value *op1, String *if_equal);
 
 Value *pop_and_op(Assembly *code, Value *op1, char *op_prefix, Value *op2);
 
-int pop_and_index(Assembly *code, Value *op1, char *op_prefix, Value *op2, Stack *);
+Value *pop_and_index(Assembly *code, Value *op1, Value *op2);
 
 Value *pop_and_single_op(Assembly *code, Value *op1, char *op_prefix, Value *op2);
 
@@ -236,7 +231,9 @@ Value *pop_and_set(Assembly *code, Value *op1, char *op_prefix, Value *op2);
 
 void emit_jump(Assembly *code, String *label);
 
-void emit_push_var(Assembly *code, Value *res_info);
+Value *emit_push_var(Assembly *code, Value *res_info);
+
+Value *emit_push_array(Assembly *code, Value *res_info);
 
 int emit_push_register(Assembly *code, size_t idx, Type_size size);
 

@@ -88,17 +88,20 @@ static int check_type(void);
 
 {HP}{H}+{IS}? {
     // hex: 0FFF
-    set_constant(&yylval.res_info, atoi(yytext)); return I_CONSTANT;
+    yylval.res_info = *make_constant_val(atoi(yytext));
+    return I_CONSTANT;
 }
 
 {NZ}{D}*{IS}? {
     // 123
-    set_constant(&yylval.res_info, atoi(yytext)); return I_CONSTANT;
+    yylval.res_info = *make_constant_val(atoi(yytext));
+    return I_CONSTANT;
  }
 
 "0"{O}*{IS}? {
     //  Oct: 0123u
-    set_constant(&yylval.res_info, atoi(yytext)); return I_CONSTANT;
+    yylval.res_info = *make_constant_val(atoi(yytext));
+    return I_CONSTANT;
 }
 
 {CP}?"'"([^'\\\n]|{ES})+"'"		{ return I_CONSTANT; }

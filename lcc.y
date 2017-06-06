@@ -285,28 +285,10 @@ conditional_expression
 assignment_expression
 	: conditional_expression
 	| unary_expression assignment_operator assignment_expression {
-	    // TODO: small -> large need signal extend
 	    // Assignment, not initialization.
 	    assembly_append($1.assembly, $3.assembly);
 	    $$.assembly = $1.assembly;
-        emit_pop($$.assembly, $3.res_info, 0);
-        assembly_push_back($$.assembly, sprint("\t# assign"));
-        if (is_address($1.res_info)) {
-            assembly_push_back($$.assembly, sprint("\tmov%c   %d(%%rbp), %%%s",
-                                            op_suffix[get_type_size($1.res_info)],
-                                            -get_stack_offset($1.res_info),
-                                            regular_reg[1][get_type_size($1.res_info)]));
-            free_stack(real_size[get_type_size($1.res_info)]);
-            assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, (%%%s)",
-                                        op_suffix[get_type_size($1.res_info)],
-                                        regular_reg[0][get_type_size($1.res_info)],
-                                        regular_reg[1][get_type_size($1.res_info)]));
-        } else {
-            assembly_push_back($$.assembly, sprint("\tmov%c   %%%s, %d(%%rbp)",
-                                        op_suffix[get_type_size($1.res_info)],
-                                        regular_reg[0][get_type_size($1.res_info)],
-                                        -get_stack_offset($1.res_info)));
-        }
+        pop_and_assign($$.assembly, $1.res_info, $3.res_info);
 	}
 	;
 

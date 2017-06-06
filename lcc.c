@@ -548,10 +548,10 @@ int is_address(Value *p) {
 
 void pop_and_assign(Assembly *code, Value *op1, Value *op2) {
     assembly_push_back(code, sprint("\t# assign"));
-    emit_pop(code, op2, 0);
     Type_size op1_type = get_type_size(op1);
     Type_size max_type = max(op1_type, get_type_size(op2));
-    signal_extend(code, 1, get_type_size(op2), max_type);
+    emit_pop(code, op2, 0);
+    signal_extend(code, 0, get_type_size(op2), max_type);
     if (is_address(op1)) {
         // for index result
         // TODO: %rcx is chosen as temp register, which isn't a good strategy

@@ -171,8 +171,8 @@ main:
 	movl   -28(%rbp), %ebx
 	addl   %ebx, %eax
 	movl   %eax, -24(%rbp)
-	movl   -24(%rbp), %eax
 	# assign
+	movl   -24(%rbp), %eax
 	movb   %al, -19(%rbp)
 	# push -21(%rbp)
 	movb   -19(%rbp), %al
@@ -202,8 +202,9 @@ main:
 	movq   -48(%rbp), %rdi
 	call   minus_one
 	movl   %eax, -52(%rbp)
-	movl   -52(%rbp), %eax
 	# assign
+	movl   -52(%rbp), %eax
+	movslq %eax, %rax
 	movq   %rax, -32(%rbp)
 	# push -52(%rbp)
 	movl   -12(%rbp), %eax
@@ -242,8 +243,8 @@ main:
 	movl   $1, %ebx
 	addl   %ebx, %eax
 	movl   %eax, -68(%rbp)
-	movl   -68(%rbp), %eax
 	# assign
+	movl   -68(%rbp), %eax
 	movl   %eax, -52(%rbp)
 .E1:
 	# allocate tmp 4 byte(s) -60(%rbp)
@@ -276,10 +277,11 @@ main:
 	addq   %rax, %rcx
 	# index final res
 	movq   %rcx, -104(%rbp)
-	movl   $4, %eax
 	# assign
-	movq   -104(%rbp), %rbx
-	movq   %rax, (%rbx)
+	movl   $4, %eax
+	movslq %eax, %rax
+	movq   -104(%rbp), %rcx
+	movq   %rax, (%rcx)
 	# push -104(%rbp)
 	leaq   -96(%rbp), %rax
 	movq   %rax, -104(%rbp)
@@ -306,12 +308,20 @@ main:
 	addq   %rax, %rcx
 	# index final res
 	movq   %rcx, -104(%rbp)
-	movl   $1, %eax
 	# assign
-	movq   -104(%rbp), %rbx
-	movq   %rax, (%rbx)
+	movl   $1, %eax
+	movslq %eax, %rax
+	movq   -104(%rbp), %rcx
+	movq   %rax, (%rcx)
 	# allocate k 4 byte(s) -100(%rbp)
 	movl   $0, -100(%rbp)
+	# push -101(%rbp)
+	movb   -19(%rbp), %al
+	movb   %al, -101(%rbp)
+	# assign
+	movb   -101(%rbp), %al
+	movsbl %al, %eax
+	movl   %eax, -12(%rbp)
 	# push -112(%rbp)
 	leaq   -96(%rbp), %rax
 	movq   %rax, -112(%rbp)
@@ -382,8 +392,8 @@ main:
 	movq   (%rcx), %rbx
 	subq   %rbx, %rax
 	movq   %rax, -112(%rbp)
-	movq   -112(%rbp), %rax
 	# assign
+	movq   -112(%rbp), %rax
 	movl   %eax, -12(%rbp)
 	# push -112(%rbp)
 	movq   -32(%rbp), %rax
@@ -444,8 +454,8 @@ main:
 	movl   $2, %ebx
 	addl   %ebx, %eax
 	movl   %eax, -124(%rbp)
-	movl   -124(%rbp), %eax
 	# assign
+	movl   -124(%rbp), %eax
 	movl   %eax, -52(%rbp)
 	# push -128(%rbp)
 	movq   -32(%rbp), %rax
@@ -456,8 +466,8 @@ main:
 	movslq %ebx, %rbx
 	subq   %rbx, %rax
 	movq   %rax, -128(%rbp)
-	movq   -128(%rbp), %rax
 	# assign
+	movq   -128(%rbp), %rax
 	movq   %rax, -32(%rbp)
 	# end compound statement
 	jmp    .B2
@@ -685,8 +695,8 @@ minus_one:
 	movl   $1, %ebx
 	addl   %ebx, %eax
 	movl   %eax, -20(%rbp)
-	movl   -20(%rbp), %eax
 	# assign
+	movl   -20(%rbp), %eax
 	movl   %eax, -4(%rbp)
 	# push -20(%rbp)
 	movl   -8(%rbp), %eax
@@ -696,8 +706,8 @@ minus_one:
 	movl   $1, %ebx
 	addl   %ebx, %eax
 	movl   %eax, -20(%rbp)
-	movl   -20(%rbp), %eax
 	# assign
+	movl   -20(%rbp), %eax
 	movl   %eax, -8(%rbp)
 	jmp    .B6
 .E6:
@@ -727,8 +737,8 @@ minus_one:
 	movl   $1, %ebx
 	subl   %ebx, %eax
 	movl   %eax, -20(%rbp)
-	movl   -20(%rbp), %eax
 	# assign
+	movl   -20(%rbp), %eax
 	movl   %eax, -8(%rbp)
 	# push -20(%rbp)
 	movl   -4(%rbp), %eax
@@ -738,8 +748,8 @@ minus_one:
 	movl   $1, %ebx
 	subl   %ebx, %eax
 	movl   %eax, -20(%rbp)
-	movl   -20(%rbp), %eax
 	# assign
+	movl   -20(%rbp), %eax
 	movl   %eax, -4(%rbp)
 	# end compound statement
 	jmp    .B7

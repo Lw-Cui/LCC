@@ -44,6 +44,7 @@ int main(int argc) {
     array[1][3] = 4;
     array[0][2] = 1;
     int k = 0;
+    v1 = v3;
     v1 = array[1][3] - array[k][k + 2];
     if (v4 == v2) {
         return v4 + 3;              // 7

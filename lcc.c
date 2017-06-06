@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <memory.h>
+#include <string.h>
+#include <zconf.h>
 #include <stdio.h>
 #include "lcc.h"
 
@@ -232,14 +234,20 @@ int emit_push_register(Assembly *code, size_t idx, Type_size size) {
 }
 
 void emit_pop(Assembly *code, Value *res_info, size_t idx) {
-    if (has_stack_offset(res_info) && !is_address(res_info)) {
+    if (has_constant(res_info)) {
+        assembly_push_back(code, sprint("\tmov%c   $%d, %%%s",
+                                        op_suffix[get_type_size(res_info)],
+                                        get_constant(res_info),
+                                        regular_reg[idx][get_type_size(res_info)]));
+    }  // then it means has_stack_offset(res_info)
+    else if (!is_address(res_info)) {
         assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
                                         op_suffix[get_type_size(res_info)],
                                         -get_stack_offset(res_info),
                                         regular_reg[idx][get_type_size(res_info)]));
         free_stack(real_size[get_type_size(res_info)]);
-    } else if (has_stack_offset(res_info) && is_address(res_info)) {
-        // TODO: temp ragister
+    } else {
+        // TODO: %rcx is chosen as temp register, which isn't a good strategy
         assembly_push_back(code, sprint("\tmovq   %d(%%rbp), %%%s",
                                         -get_stack_offset(res_info),
                                         regular_reg[2][QUAD_WORD]));
@@ -248,11 +256,6 @@ void emit_pop(Assembly *code, Value *res_info, size_t idx) {
                                         regular_reg[2][QUAD_WORD],
                                         regular_reg[idx][get_type_size(res_info)]));
         free_stack(real_size[get_type_size(res_info)]);
-    } else if (has_constant(res_info)) {
-        assembly_push_back(code, sprint("\tmov%c   $%d, %%%s",
-                                        op_suffix[get_type_size(res_info)],
-                                        get_constant(res_info),
-                                        regular_reg[idx][get_type_size(res_info)]));
     }
 }
 
@@ -351,17 +354,17 @@ void pop_and_je(Assembly *code, Value *op1, String *if_equal) {
 }
 
 
-void set_control_label(Label *p) {
-    p->beg_label++;
-    p->end_label++;
+void set_control_label() {
+    label.beg_label++;
+    label.end_label++;
 }
 
-String *get_beg_label(Label *p) {
-    return sprint(".B%d", p->beg_label);
+String *get_beg_label() {
+    return sprint(".B%d", label.beg_label);
 }
 
-String *get_end_label(Label *p) {
-    return sprint(".E%d", p->end_label);
+String *get_end_label() {
+    return sprint(".E%d", label.end_label);
 }
 
 void free_variables(Symbol *symbol) {
@@ -374,11 +377,11 @@ void emit_jump(Assembly *code, String *label) {
 }
 
 void add_while_label(Symbol *cond, Analysis *stat) {
-    set_control_label(&label);
-    assembly_push_front(cond->assembly, append_char(get_beg_label(&label), ':'));
-    pop_and_je(cond->assembly, cond->res_info, get_end_label(&label));
-    emit_jump(stat->assembly, get_beg_label(&label));
-    assembly_push_back(stat->assembly, append_char(get_end_label(&label), ':'));
+    set_control_label();
+    assembly_push_front(cond->assembly, append_char(get_beg_label(), ':'));
+    pop_and_je(cond->assembly, cond->res_info, get_end_label());
+    emit_jump(stat->assembly, get_beg_label());
+    assembly_push_back(stat->assembly, append_char(get_end_label(), ':'));
 }
 
 Type_size get_type_size(Value *p) {
@@ -404,12 +407,12 @@ Value *clone_value(Value *bak) {
     return ptr;
 }
 
-void set_exit_label(Label *p) {
-    p->exit_label++;
+void set_exit_label() {
+    label.exit_label++;
 }
 
-String *get_exit_label(Label *p) {
-    return sprint(".F%d", p->exit_label);
+String *get_exit_label() {
+    return sprint(".F%d", label.exit_label);
 }
 
 void emit_set_func_arguments(Assembly *code, Symbol *func) {
@@ -441,6 +444,7 @@ void emit_get_func_arguments(Assembly *code) {
     Assembly *al = make_assembly();
     for (int i = 0; i < size(func->param); i++) {
         Symbol *arg = symbol_cast(at(func->param, i));
+        yyerror("%s", str(arg->name));
         arg->parent = symtab;
         symtab = arg;
         arg->offset = allocate_stack(real_size[arg->self_type]);
@@ -541,3 +545,40 @@ int is_array(Value *p) {
 int is_address(Value *p) {
     return p->index == ADDRESS;
 }
+
+void pop_and_assign(Assembly *code, Value *op1, Value *op2) {
+    assembly_push_back(code, sprint("\t# assign"));
+    emit_pop(code, op2, 0);
+    Type_size op1_type = get_type_size(op1);
+    Type_size max_type = max(op1_type, get_type_size(op2));
+    signal_extend(code, 1, get_type_size(op2), max_type);
+    if (is_address(op1)) {
+        // for index result
+        // TODO: %rcx is chosen as temp register, which isn't a good strategy
+        assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
+                                        op_suffix[op1_type],
+                                        -get_stack_offset(op1),
+                                        regular_reg[2][op1_type]));
+        free_stack(real_size[op1_type]);
+        assembly_push_back(code, sprint("\tmov%c   %%%s, (%%%s)",
+                                        op_suffix[op1_type],
+                                        regular_reg[0][op1_type],
+                                        regular_reg[2][op1_type]));
+    } else {
+        assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
+                                        op_suffix[op1_type],
+                                        regular_reg[0][op1_type],
+                                        -get_stack_offset(op1)));
+    }
+}
+
+void yyerror(const char *fmt, ...) {
+    fflush(stdout);
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "*** ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+}
+

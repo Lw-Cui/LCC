@@ -7,6 +7,11 @@
 #include <zconf.h>
 #include "lcc.h"
 
+#define YYDEBUG 1
+#ifdef YYDEBUG
+    int yydebug = 0;
+#endif
+
 /*
  *  assembly_append($1.assembly, $3.assembly);
  *  $$ = $1;
@@ -15,18 +20,9 @@
         assembly_append((yyvsp[(1) - (3)]).assembly, (yyvsp[(3) - (3)]).assembly);\
         (yyval) = (yyvsp[(1) - (3)]);\
 
-extern Label label;
-
 int yylex(void);
-void yyerror(const char *fmt, ...) {
-	fflush(stdout);
-    va_list ap;
-    va_start(ap, fmt);
-    fprintf(stderr, "*** ");
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
-    va_end(ap);
-}
+void yyerror(const char *fmt, ...);
+
 %}
 %token	IDENTIFIER I_CONSTANT F_CONSTANT STRING_LITERAL FUNC_NAME SIZEOF
 %token	PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
@@ -523,7 +519,6 @@ declarator
 direct_declarator
 	: IDENTIFIER {
         // used in declaration, not normal expression
-	    // TODO: for func arguments: int foo(int a[][6]);
     }
 	| '(' declarator ')'
 	| direct_declarator '[' ']'
@@ -581,8 +576,12 @@ parameter_declaration
 	: declaration_specifiers declarator {
 	    // function parameter with name
         if ($$.param == NULL) $$.param = make_vector();
-        Symbol *var = make_param_symbol($1.self_type, $2.name);
-        push_back($$.param, var);
+        if ($2.step == NULL)
+            push_back($$.param, make_param_symbol($1.self_type, $2.name));
+        else
+        // TODO: array parameter
+            push_back($$.param, make_param_symbol(ARRAY, $2.name));
+            if ($2.step != NULL) yyerror("%d!", size($2.step));
     }
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers {
@@ -724,20 +723,20 @@ expression_statement
 
 selection_statement
 	: IF '(' expression ')' statement ELSE statement {
-        set_control_label(&label);
+        set_control_label();
         // just pop. The top of stack is useless.
-        pop_and_je($3.assembly, $3.res_info, get_beg_label(&label));
-        assembly_push_front($7.assembly, append_char(get_beg_label(&label), ':'));
-        assembly_push_back($7.assembly, append_char(get_end_label(&label), ':'));
-        emit_jump($5.assembly, get_end_label(&label));
+        pop_and_je($3.assembly, $3.res_info, get_beg_label());
+        assembly_push_front($7.assembly, append_char(get_beg_label(), ':'));
+        assembly_push_back($7.assembly, append_char(get_end_label(), ':'));
+        emit_jump($5.assembly, get_end_label());
         assembly_append($5.assembly, $7.assembly);
         assembly_append($3.assembly, $5.assembly);
         $$.assembly = $3.assembly;
 	}
 	| IF '(' expression ')' statement {
-        set_control_label(&label);
-        pop_and_je($3.assembly, $3.res_info, get_end_label(&label));
-        assembly_push_back($5.assembly, append_char(get_end_label(&label), ':'));
+        set_control_label();
+        pop_and_je($3.assembly, $3.res_info, get_end_label());
+        assembly_push_back($5.assembly, append_char(get_end_label(), ':'));
         assembly_append($3.assembly, $5.assembly);
         $$.assembly = $3.assembly;
 	}
@@ -784,7 +783,7 @@ jump_statement
 	| RETURN expression ';' {
 	    $$ = $2;
 	    emit_pop($$.assembly, $2.res_info, 0);
-	    emit_jump($$.assembly, get_exit_label(&label));
+	    emit_jump($$.assembly, get_exit_label());
     }
 	;
 
@@ -808,9 +807,9 @@ function_definition
 	    assembly_append($1.assembly, $2.assembly);
 	    $$ = $1;
 	    // Important: 'return' maybe occurred anywhere
-        assembly_push_back($$.assembly, append_char(get_exit_label(&label), ':'));
+        assembly_push_back($$.assembly, append_char(get_exit_label(), ':'));
         // for next usage
-	    set_exit_label(&label);
+	    set_exit_label();
         assembly_push_back($$.assembly, sprint("\taddq   $%d, %%rsp", get_top_scope()->rsp));
         assembly_push_back($$.assembly, make_string("\tpopq   %rbp"));
         assembly_push_back($$.assembly, make_string("\tret\n"));

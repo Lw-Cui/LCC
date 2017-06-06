@@ -32,8 +32,7 @@ typedef enum Type {
     FUNC_DECL,     // function declaration: 5
     FUNC_CALL,
     NEW_SCOPE,      // new scope, e.g. function, for, while, if
-    // for value
-            STACK_VAR,
+    STACK_VAR, // for value
     ARRAY,
     ADDRESS,
     CONSTANT,
@@ -181,15 +180,15 @@ typedef struct Label {
     int exit_label;
 } Label;
 
-void set_control_label(Label *);
+void set_control_label();
 
-void set_exit_label(Label *);
+void set_exit_label();
 
-String *get_beg_label(Label *);
+String *get_beg_label();
 
-String *get_end_label(Label *);
+String *get_end_label();
 
-String *get_exit_label(Label *);
+String *get_exit_label();
 
 typedef struct Analysis {
     String *name;
@@ -222,15 +221,16 @@ void add_dimension(Symbol *s, int d);
 
 void convert_dimension_to_step();
 
-void yyerror(const char *fmt, ...);
-
 void free_variables(Symbol *);
 
 void signal_extend(Assembly *code, int idx, Type_size original, Type_size new);
 
+
 void pop_and_je(Assembly *code, Value *op1, String *if_equal);
 
 Value *pop_and_op(Assembly *code, Value *op1, char *op_prefix, Value *op2);
+
+void pop_and_assign(Assembly *code, Value *op1, Value *op2);
 
 Value *pop_and_index(Assembly *code, Value *op1, Value *op2);
 
@@ -283,6 +283,8 @@ Symbol *find_name(String *name);
 Symbol *get_top_scope();
 
 int in_global_scope();
+
+void yyerror(const char *fmt, ...);
 
 #define YYSTYPE Analysis
 

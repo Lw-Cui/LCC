@@ -242,7 +242,7 @@ conflict:
 	subl   %ebx, %eax
 	movl   %eax, -40(%rbp)
 	movl   -40(%rbp), %eax
-	# allocate j 4 byte(s) -40(%rbp)
+	# allocate delta 4 byte(s) -40(%rbp)
 	movl   %eax, -40(%rbp)
 	# push -44(%rbp)
 	movl   -16(%rbp), %eax
@@ -255,16 +255,11 @@ conflict:
 	movl   -48(%rbp), %ebx
 	subl   %ebx, %eax
 	movl   %eax, -44(%rbp)
-	# (pop and) add
-	movl   -44(%rbp), %eax
-	movl   $1, %ebx
-	addl   %ebx, %eax
-	movl   %eax, -44(%rbp)
 	# (pop and) set
-	movl   $0, %eax
-	movl   -44(%rbp), %ebx
+	movl   -44(%rbp), %eax
+	movl   $0, %ebx
 	cmpl   %ebx, %eax
-	setl   %al
+	setge  %al
 	movsbq %al, %rax
 	movq   %rax, -48(%rbp)
 	# (pop) cmp and je

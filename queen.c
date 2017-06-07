@@ -21,12 +21,12 @@ int conflict(int board[8][8], int row, int col) {
     for (int i = 0; i < row; i = i + 1) {
         if (board[i][col])
             return 1;
-        int j = row - i;
-        if (0 < col - j + 1)
-            if (board[i][col - j])
+        int delta = row - i;
+        if (col - delta >= 0)
+            if (board[i][col - delta])
                 return 1;
-        if (col + j < 8)
-            if (board[i][col + j])
+        if (col + delta < 8)
+            if (board[i][col + delta])
                 return 1;
     }
     return 0;

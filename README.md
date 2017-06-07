@@ -2,12 +2,16 @@
 
 **L**iwei's **C** **C**ompiler.
 
-One of my object is to compile the `Tshell`.
+
+## News
+* **(06/07/2017)** Now LCC could compile eight queens puzzle! (look [queen.c](./queen.c))
+* **(05/21/2017)** Game starts >_<
 
 ## Tshell
-*T* means *toy* or *tiny*.
+**T**oy shell. One of LCC's object is to compile the shell.
+
+In Tshell `malloc` is invoked to implement dynamic array, but thanks to `Valgrind` life is still sane.
  
-I use malloc to implement dynamic array, and thanks to `Valgrind` everything works fine.
 
 ```
 $ valgrind  --leak-check=full ./shell

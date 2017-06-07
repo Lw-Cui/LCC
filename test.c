@@ -4,6 +4,10 @@ int get_array(int a[2][5], int x, int y) {
     return a[x][y];
 }
 
+int set_array(int a[2][5], int x, int y, int val) {
+    a[x][y] = val;
+}
+
 int diff(char a, int b);
 
 int getV1(int count) {
@@ -40,7 +44,7 @@ int main(int argc) {
     }
     int array[2][5];
     array[1][3] = 4;
-    array[0][2] = 1;
+    set_array(array, 0, 2, 1);
     int k = 0;
     v1 = v3;
     v1 = get_array(array, 1, 3)  - array[k][k + 2];

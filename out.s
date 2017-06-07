@@ -1,3 +1,57 @@
+	.globl get_array
+	.type  get_array, @function
+get_array:
+	pushq  %rbp
+	movq   %rsp, %rbp
+	# passing array a 8 byte(s) -8(%rbp)
+	movq   %rdi, -8(%rbp)
+	# passing x 4 byte(s) -12(%rbp)
+	movl   %esi, -12(%rbp)
+	# passing y 4 byte(s) -16(%rbp)
+	movl   %edx, -16(%rbp)
+	subq   $32, %rsp
+	# start compound statement
+	# push -24(%rbp)
+	movq   -8(%rbp), %rax
+	movq   %rax, -24(%rbp)
+	# push -28(%rbp)
+	movl   -12(%rbp), %eax
+	movl   %eax, -28(%rbp)
+	# pop and index
+	# (pop and) mul
+	movl   -28(%rbp), %eax
+	movl   $20, %ebx
+	mull   %ebx
+	movl   %eax, -28(%rbp)
+	movl   -28(%rbp), %eax
+	movslq %eax, %rax
+	movq   -8(%rbp), %rcx
+	addq   %rax, %rcx
+	movq   %rcx, -24(%rbp)
+	# push -28(%rbp)
+	movl   -16(%rbp), %eax
+	movl   %eax, -28(%rbp)
+	# pop and index
+	# (pop and) mul
+	movl   -28(%rbp), %eax
+	movl   $4, %ebx
+	mull   %ebx
+	movl   %eax, -28(%rbp)
+	movl   -28(%rbp), %eax
+	movslq %eax, %rax
+	movq   -24(%rbp), %rcx
+	addq   %rax, %rcx
+	# index final res
+	movq   %rcx, -24(%rbp)
+	movq   -24(%rbp), %rcx
+	movl   (%rcx), %eax
+	jmp    .F0
+	# end compound statement
+.F0:
+	addq   $32, %rsp
+	popq   %rbp
+	ret
+
 	.globl getV1
 	.type  getV1, @function
 getV1:
@@ -21,9 +75,9 @@ getV1:
 	addl   %ebx, %eax
 	movl   %eax, -8(%rbp)
 	movl   -8(%rbp), %eax
-	jmp    .F0
+	jmp    .F1
 	# end compound statement
-.F0:
+.F1:
 	addq   $16, %rsp
 	popq   %rbp
 	ret
@@ -51,9 +105,9 @@ minus:
 	subl   %ebx, %eax
 	movl   %eax, -12(%rbp)
 	movl   -12(%rbp), %eax
-	jmp    .F1
+	jmp    .F2
 	# end compound statement
-.F1:
+.F2:
 	addq   $16, %rsp
 	popq   %rbp
 	ret
@@ -81,9 +135,9 @@ shift_left:
 	sarq   %cl, %rax
 	movq   %rax, -24(%rbp)
 	movq   -24(%rbp), %rax
-	jmp    .F2
+	jmp    .F3
 	# end compound statement
-.F2:
+.F3:
 	addq   $32, %rsp
 	popq   %rbp
 	ret
@@ -111,9 +165,9 @@ shift_right:
 	salq   %cl, %rax
 	movq   %rax, -24(%rbp)
 	movq   -24(%rbp), %rax
-	jmp    .F3
+	jmp    .F4
 	# end compound statement
-.F3:
+.F4:
 	addq   $32, %rsp
 	popq   %rbp
 	ret
@@ -125,7 +179,7 @@ main:
 	movq   %rsp, %rbp
 	# passing argc 4 byte(s) -4(%rbp)
 	movl   %edi, -4(%rbp)
-	subq   $144, %rsp
+	subq   $176, %rsp
 	# start compound statement
 	# push -8(%rbp)
 	movl   -4(%rbp), %eax
@@ -251,277 +305,263 @@ main:
 	movl   $0, -60(%rbp)
 	# end compound statement
 	# allocate array 40 byte(s) -96(%rbp)
-	# push -104(%rbp)
-	leaq   -96(%rbp), %rax
-	movq   %rax, -104(%rbp)
+	leaq   -96(%rbp), %rcx
+	movq   %rcx, -104(%rbp)
+	# push -112(%rbp)
+	movq   -104(%rbp), %rax
+	movq   %rax, -112(%rbp)
 	# pop and index
 	# (pop and) mul
 	movl   $1, %eax
 	movl   $20, %ebx
 	mull   %ebx
-	movl   %eax, -108(%rbp)
-	movl   -108(%rbp), %eax
+	movl   %eax, -116(%rbp)
+	movl   -116(%rbp), %eax
 	movslq %eax, %rax
 	movq   -104(%rbp), %rcx
 	addq   %rax, %rcx
-	movq   %rcx, -104(%rbp)
+	movq   %rcx, -112(%rbp)
 	# pop and index
 	# (pop and) mul
 	movl   $3, %eax
 	movl   $4, %ebx
 	mull   %ebx
-	movl   %eax, -108(%rbp)
-	movl   -108(%rbp), %eax
+	movl   %eax, -116(%rbp)
+	movl   -116(%rbp), %eax
 	movslq %eax, %rax
-	movq   -104(%rbp), %rcx
+	movq   -112(%rbp), %rcx
 	addq   %rax, %rcx
 	# index final res
-	movq   %rcx, -104(%rbp)
+	movq   %rcx, -112(%rbp)
 	# assign
 	movl   $4, %eax
-	movslq %eax, %rax
-	movq   -104(%rbp), %rcx
-	movq   %rax, (%rcx)
-	# push -104(%rbp)
-	leaq   -96(%rbp), %rax
-	movq   %rax, -104(%rbp)
+	movq   -112(%rbp), %rcx
+	movl   %eax, (%rcx)
+	# push -120(%rbp)
+	movq   -104(%rbp), %rax
+	movq   %rax, -120(%rbp)
 	# pop and index
 	# (pop and) mul
 	movl   $0, %eax
 	movl   $20, %ebx
 	mull   %ebx
-	movl   %eax, -108(%rbp)
-	movl   -108(%rbp), %eax
+	movl   %eax, -124(%rbp)
+	movl   -124(%rbp), %eax
 	movslq %eax, %rax
 	movq   -104(%rbp), %rcx
 	addq   %rax, %rcx
-	movq   %rcx, -104(%rbp)
+	movq   %rcx, -120(%rbp)
 	# pop and index
 	# (pop and) mul
 	movl   $2, %eax
 	movl   $4, %ebx
 	mull   %ebx
-	movl   %eax, -108(%rbp)
-	movl   -108(%rbp), %eax
+	movl   %eax, -124(%rbp)
+	movl   -124(%rbp), %eax
 	movslq %eax, %rax
-	movq   -104(%rbp), %rcx
+	movq   -120(%rbp), %rcx
 	addq   %rax, %rcx
 	# index final res
-	movq   %rcx, -104(%rbp)
+	movq   %rcx, -120(%rbp)
 	# assign
 	movl   $1, %eax
-	movslq %eax, %rax
-	movq   -104(%rbp), %rcx
-	movq   %rax, (%rcx)
-	# allocate k 4 byte(s) -100(%rbp)
-	movl   $0, -100(%rbp)
-	# push -101(%rbp)
+	movq   -120(%rbp), %rcx
+	movl   %eax, (%rcx)
+	# allocate k 4 byte(s) -120(%rbp)
+	movl   $0, -120(%rbp)
+	# push -121(%rbp)
 	movb   -19(%rbp), %al
-	movb   %al, -101(%rbp)
+	movb   %al, -121(%rbp)
 	# assign
-	movb   -101(%rbp), %al
+	movb   -121(%rbp), %al
 	movsbl %al, %eax
 	movl   %eax, -12(%rbp)
-	# push -112(%rbp)
-	leaq   -96(%rbp), %rax
-	movq   %rax, -112(%rbp)
+	# push -128(%rbp)
+	movq   -104(%rbp), %rax
+	movq   %rax, -128(%rbp)
+	# passing arg 0
+	movq   -104(%rbp), %rdi
+	# passing arg 1
+	movl   $1, %esi
+	movslq %esi, %rsi
+	# passing arg 2
+	movl   $3, %edx
+	movslq %edx, %rdx
+	call   get_array
+	movl   %eax, -132(%rbp)
+	# push -144(%rbp)
+	movq   -104(%rbp), %rax
+	movq   %rax, -144(%rbp)
+	# push -148(%rbp)
+	movl   -120(%rbp), %eax
+	movl   %eax, -148(%rbp)
 	# pop and index
 	# (pop and) mul
-	movl   $1, %eax
+	movl   -148(%rbp), %eax
 	movl   $20, %ebx
 	mull   %ebx
-	movl   %eax, -116(%rbp)
-	movl   -116(%rbp), %eax
+	movl   %eax, -148(%rbp)
+	movl   -148(%rbp), %eax
 	movslq %eax, %rax
-	movq   -112(%rbp), %rcx
+	movq   -104(%rbp), %rcx
 	addq   %rax, %rcx
-	movq   %rcx, -112(%rbp)
-	# pop and index
-	# (pop and) mul
-	movl   $3, %eax
-	movl   $4, %ebx
-	mull   %ebx
-	movl   %eax, -116(%rbp)
-	movl   -116(%rbp), %eax
-	movslq %eax, %rax
-	movq   -112(%rbp), %rcx
-	addq   %rax, %rcx
-	# index final res
-	movq   %rcx, -112(%rbp)
-	# push -120(%rbp)
-	leaq   -96(%rbp), %rax
-	movq   %rax, -120(%rbp)
-	# push -124(%rbp)
-	movl   -100(%rbp), %eax
-	movl   %eax, -124(%rbp)
-	# pop and index
-	# (pop and) mul
-	movl   -124(%rbp), %eax
-	movl   $20, %ebx
-	mull   %ebx
-	movl   %eax, -124(%rbp)
-	movl   -124(%rbp), %eax
-	movslq %eax, %rax
-	movq   -120(%rbp), %rcx
-	addq   %rax, %rcx
-	movq   %rcx, -120(%rbp)
-	# push -124(%rbp)
-	movl   -100(%rbp), %eax
-	movl   %eax, -124(%rbp)
+	movq   %rcx, -144(%rbp)
+	# push -148(%rbp)
+	movl   -120(%rbp), %eax
+	movl   %eax, -148(%rbp)
 	# (pop and) add
-	movl   -124(%rbp), %eax
+	movl   -148(%rbp), %eax
 	movl   $2, %ebx
 	addl   %ebx, %eax
-	movl   %eax, -124(%rbp)
+	movl   %eax, -148(%rbp)
 	# pop and index
 	# (pop and) mul
-	movl   -124(%rbp), %eax
+	movl   -148(%rbp), %eax
 	movl   $4, %ebx
 	mull   %ebx
-	movl   %eax, -124(%rbp)
-	movl   -124(%rbp), %eax
+	movl   %eax, -148(%rbp)
+	movl   -148(%rbp), %eax
 	movslq %eax, %rax
-	movq   -120(%rbp), %rcx
+	movq   -144(%rbp), %rcx
 	addq   %rax, %rcx
 	# index final res
-	movq   %rcx, -120(%rbp)
+	movq   %rcx, -144(%rbp)
 	# (pop and) sub
-	movq   -112(%rbp), %rcx
-	movq   (%rcx), %rax
-	movq   -120(%rbp), %rcx
-	movq   (%rcx), %rbx
-	subq   %rbx, %rax
-	movq   %rax, -112(%rbp)
+	movl   -132(%rbp), %eax
+	movq   -144(%rbp), %rcx
+	movl   (%rcx), %ebx
+	subl   %ebx, %eax
+	movl   %eax, -140(%rbp)
 	# assign
-	movq   -112(%rbp), %rax
+	movl   -140(%rbp), %eax
 	movl   %eax, -12(%rbp)
-	# push -112(%rbp)
+	# push -144(%rbp)
 	movq   -32(%rbp), %rax
-	movq   %rax, -112(%rbp)
-	# push -114(%rbp)
+	movq   %rax, -144(%rbp)
+	# push -146(%rbp)
 	movw   -18(%rbp), %ax
-	movw   %ax, -114(%rbp)
+	movw   %ax, -146(%rbp)
 	# (pop and) set
-	movq   -112(%rbp), %rax
-	movw   -114(%rbp), %bx
+	movq   -144(%rbp), %rax
+	movw   -146(%rbp), %bx
 	movswq %bx, %rbx
 	cmpq   %rbx, %rax
 	sete   %al
 	movsbq %al, %rax
-	movq   %rax, -112(%rbp)
+	movq   %rax, -144(%rbp)
 	# (pop) cmp and je
-	movq   -112(%rbp), %rax
+	movq   -144(%rbp), %rax
 	cmpq   $0, %rax
 	je     .B4
 	# start compound statement
-	# push -120(%rbp)
+	# push -152(%rbp)
 	movq   -32(%rbp), %rax
-	movq   %rax, -120(%rbp)
+	movq   %rax, -152(%rbp)
 	# (pop and) add
-	movq   -120(%rbp), %rax
+	movq   -152(%rbp), %rax
 	movl   $3, %ebx
 	movslq %ebx, %rbx
 	addq   %rbx, %rax
-	movq   %rax, -120(%rbp)
-	movq   -120(%rbp), %rax
-	jmp    .F4
+	movq   %rax, -152(%rbp)
+	movq   -152(%rbp), %rax
+	jmp    .F5
 	# end compound statement
 	jmp    .E4
 .B4:
 	# start compound statement
 .B2:
-	# push -120(%rbp)
+	# push -152(%rbp)
 	movq   -32(%rbp), %rax
-	movq   %rax, -120(%rbp)
+	movq   %rax, -152(%rbp)
 	# (pop and) set
-	movq   -120(%rbp), %rax
+	movq   -152(%rbp), %rax
 	movl   $0, %ebx
 	movslq %ebx, %rbx
 	cmpq   %rbx, %rax
 	setne  %al
 	movsbq %al, %rax
-	movq   %rax, -120(%rbp)
+	movq   %rax, -152(%rbp)
 	# (pop) cmp and je
-	movq   -120(%rbp), %rax
+	movq   -152(%rbp), %rax
 	cmpq   $0, %rax
 	je     .E2
 	# start compound statement
-	# push -124(%rbp)
+	# push -156(%rbp)
 	movl   -52(%rbp), %eax
-	movl   %eax, -124(%rbp)
+	movl   %eax, -156(%rbp)
 	# (pop and) add
-	movl   -124(%rbp), %eax
+	movl   -156(%rbp), %eax
 	movl   $2, %ebx
 	addl   %ebx, %eax
-	movl   %eax, -124(%rbp)
+	movl   %eax, -156(%rbp)
 	# assign
-	movl   -124(%rbp), %eax
+	movl   -156(%rbp), %eax
 	movl   %eax, -52(%rbp)
-	# push -128(%rbp)
+	# push -160(%rbp)
 	movq   -32(%rbp), %rax
-	movq   %rax, -128(%rbp)
+	movq   %rax, -160(%rbp)
 	# (pop and) sub
-	movq   -128(%rbp), %rax
+	movq   -160(%rbp), %rax
 	movl   $1, %ebx
 	movslq %ebx, %rbx
 	subq   %rbx, %rax
-	movq   %rax, -128(%rbp)
+	movq   %rax, -160(%rbp)
 	# assign
-	movq   -128(%rbp), %rax
+	movq   -160(%rbp), %rax
 	movq   %rax, -32(%rbp)
 	# end compound statement
 	jmp    .B2
 .E2:
-	# push -116(%rbp)
+	# push -148(%rbp)
 	movl   -52(%rbp), %eax
-	movl   %eax, -116(%rbp)
+	movl   %eax, -148(%rbp)
 	# (pop and) set
-	movl   -116(%rbp), %eax
+	movl   -148(%rbp), %eax
 	movl   $7, %ebx
 	cmpl   %ebx, %eax
 	sete   %al
 	movsbq %al, %rax
-	movq   %rax, -120(%rbp)
+	movq   %rax, -152(%rbp)
 	# (pop) cmp and je
-	movq   -120(%rbp), %rax
+	movq   -152(%rbp), %rax
 	cmpq   $0, %rax
 	je     .B3
-	# push -128(%rbp)
+	# push -160(%rbp)
 	movq   -32(%rbp), %rax
-	movq   %rax, -128(%rbp)
+	movq   %rax, -160(%rbp)
 	# (pop and) add
-	movq   -128(%rbp), %rax
+	movq   -160(%rbp), %rax
 	movl   $3, %ebx
 	movslq %ebx, %rbx
 	addq   %rbx, %rax
-	movq   %rax, -128(%rbp)
-	# push -132(%rbp)
+	movq   %rax, -160(%rbp)
+	# push -164(%rbp)
 	movl   -52(%rbp), %eax
-	movl   %eax, -132(%rbp)
+	movl   %eax, -164(%rbp)
 	# (pop and) add
-	movq   -128(%rbp), %rax
-	movl   -132(%rbp), %ebx
+	movq   -160(%rbp), %rax
+	movl   -164(%rbp), %ebx
 	movslq %ebx, %rbx
 	addq   %rbx, %rax
-	movq   %rax, -128(%rbp)
-	# push -132(%rbp)
+	movq   %rax, -160(%rbp)
+	# push -164(%rbp)
 	movl   -12(%rbp), %eax
-	movl   %eax, -132(%rbp)
+	movl   %eax, -164(%rbp)
 	# (pop and) add
-	movq   -128(%rbp), %rax
-	movl   -132(%rbp), %ebx
+	movq   -160(%rbp), %rax
+	movl   -164(%rbp), %ebx
 	movslq %ebx, %rbx
 	addq   %rbx, %rax
-	movq   %rax, -128(%rbp)
-	# push -130(%rbp)
+	movq   %rax, -160(%rbp)
+	# push -162(%rbp)
 	movw   -18(%rbp), %ax
-	movw   %ax, -130(%rbp)
+	movw   %ax, -162(%rbp)
 	# (pop and) add
-	movq   -128(%rbp), %rax
-	movw   -130(%rbp), %bx
+	movq   -160(%rbp), %rax
+	movw   -162(%rbp), %bx
 	movswq %bx, %rbx
 	addq   %rbx, %rax
-	movq   %rax, -128(%rbp)
+	movq   %rax, -160(%rbp)
 	# passing arg 0
 	movl   $0, %edi
 	movslq %edi, %rdi
@@ -529,57 +569,58 @@ main:
 	movl   $1, %esi
 	movslq %esi, %rsi
 	call   diff
-	movl   %eax, -132(%rbp)
+	movl   %eax, -164(%rbp)
 	# (pop and) add
-	movq   -128(%rbp), %rax
-	movl   -132(%rbp), %ebx
+	movq   -160(%rbp), %rax
+	movl   -164(%rbp), %ebx
 	movslq %ebx, %rbx
 	addq   %rbx, %rax
-	movq   %rax, -128(%rbp)
-	# push -136(%rbp)
-	leaq   -96(%rbp), %rax
-	movq   %rax, -136(%rbp)
+	movq   %rax, -160(%rbp)
+	# push -168(%rbp)
+	movq   -104(%rbp), %rax
+	movq   %rax, -168(%rbp)
 	# pop and index
 	# (pop and) mul
 	movl   $1, %eax
 	movl   $20, %ebx
 	mull   %ebx
-	movl   %eax, -140(%rbp)
-	movl   -140(%rbp), %eax
+	movl   %eax, -172(%rbp)
+	movl   -172(%rbp), %eax
 	movslq %eax, %rax
-	movq   -136(%rbp), %rcx
+	movq   -104(%rbp), %rcx
 	addq   %rax, %rcx
-	movq   %rcx, -136(%rbp)
+	movq   %rcx, -168(%rbp)
 	# pop and index
 	# (pop and) mul
 	movl   $3, %eax
 	movl   $4, %ebx
 	mull   %ebx
-	movl   %eax, -140(%rbp)
-	movl   -140(%rbp), %eax
+	movl   %eax, -172(%rbp)
+	movl   -172(%rbp), %eax
 	movslq %eax, %rax
-	movq   -136(%rbp), %rcx
+	movq   -168(%rbp), %rcx
 	addq   %rax, %rcx
 	# index final res
-	movq   %rcx, -136(%rbp)
+	movq   %rcx, -168(%rbp)
 	# (pop and) add
-	movq   -128(%rbp), %rax
-	movq   -136(%rbp), %rcx
-	movq   (%rcx), %rbx
+	movq   -160(%rbp), %rax
+	movq   -168(%rbp), %rcx
+	movl   (%rcx), %ebx
+	movslq %ebx, %rbx
 	addq   %rbx, %rax
-	movq   %rax, -128(%rbp)
-	movq   -128(%rbp), %rax
-	jmp    .F4
+	movq   %rax, -168(%rbp)
+	movq   -168(%rbp), %rax
+	jmp    .F5
 	jmp    .E3
 .B3:
 	movl   $0, %eax
-	jmp    .F4
+	jmp    .F5
 .E3:
 	# end compound statement
 .E4:
 	# end compound statement
-.F4:
-	addq   $144, %rsp
+.F5:
+	addq   $176, %rsp
 	popq   %rbp
 	ret
 
@@ -630,7 +671,7 @@ diff:
 	subl   %ebx, %eax
 	movl   %eax, -32(%rbp)
 	movl   -32(%rbp), %eax
-	jmp    .F5
+	jmp    .F6
 	jmp    .E5
 .B5:
 	# push -32(%rbp)
@@ -653,10 +694,10 @@ diff:
 	addl   %ebx, %eax
 	movl   %eax, -40(%rbp)
 	movl   -40(%rbp), %eax
-	jmp    .F5
+	jmp    .F6
 .E5:
 	# end compound statement
-.F5:
+.F6:
 	addq   $48, %rsp
 	popq   %rbp
 	ret
@@ -758,9 +799,9 @@ minus_one:
 	movl   -4(%rbp), %eax
 	movl   %eax, -8(%rbp)
 	movl   -8(%rbp), %eax
-	jmp    .F6
+	jmp    .F7
 	# end compound statement
-.F6:
+.F7:
 	addq   $32, %rsp
 	popq   %rbp
 	ret

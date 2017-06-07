@@ -55,7 +55,6 @@ primary_expression
 	        $$.res_info = make_stack_val(var->offset, (Type_size)var->self_type);
 	    } else {
 	        $$.res_info = make_array(var->offset, (Type_size)var->self_type, var->step, 0);
-	        // we should cal address at this time
             $$.res_info = emit_push_array($$.assembly, $$.res_info);
         }
 
@@ -332,7 +331,7 @@ declaration
 	    if (!in_global_scope()) {
             make_local_symbol($1.self_type, $2.name, $2.step, $2.res_info);
             // convert to array step
-            if (is_cur_sym_array()) convert_dimension_to_step();
+            if (is_cur_sym_array()) convert_cur_sym_dimension_to_step();
             if (!$$.assembly) $$.assembly = make_assembly();
             // $2.assembly stores initialization result, so should be appended firstly
             assembly_append($$.assembly, $2.assembly);
@@ -558,12 +557,13 @@ parameter_declaration
 	: declaration_specifiers declarator {
 	    // function parameter with name
         if ($$.param == NULL) $$.param = make_vector();
-        if ($2.step == NULL)
-            push_back($$.param, make_param_symbol($1.self_type, $2.name));
-        else
-        // TODO: array parameter
-            push_back($$.param, make_param_symbol(ARRAY, $2.name));
-            if ($2.step != NULL) yyerror("%d!", size($2.step));
+        if ($2.step == NULL) {
+            push_back($$.param, make_param_symbol($1.self_type, $2.name, NULL));
+        } else {
+            Symbol *arg = make_param_symbol($1.self_type, $2.name, $2.step);
+            convert_dimension_to_step(arg);
+            push_back($$.param, arg);
+        }
     }
 	| declaration_specifiers abstract_declarator
 	| declaration_specifiers {

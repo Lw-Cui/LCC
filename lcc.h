@@ -33,7 +33,7 @@ typedef enum Type {
     FUNC_CALL,
     NEW_SCOPE,      // new scope, e.g. function, for, while, if
     STACK_VAR, // for value
-    ARRAY,
+    ARRAY = QUAD_WORD,
     ADDRESS,
     CONSTANT,
     NONE,
@@ -166,6 +166,8 @@ Value *make_stack_val(int offset, Type_size size);
 
 Value *make_array(int offset, Type_size size, Vector *step, int);
 
+Value *emit_push_array(Assembly *code, Value *res_info);
+
 Value *make_address(int offset, Type_size size);
 
 Value *clone_value(Value *);
@@ -219,7 +221,7 @@ typedef Analysis Symbol;
 
 void add_dimension(Symbol *s, int d);
 
-void convert_dimension_to_step();
+void convert_cur_sym_dimension_to_step();
 
 void free_variables(Symbol *);
 
@@ -243,8 +245,6 @@ Value *pop_and_set(Assembly *code, Value *op1, char *op_prefix, Value *op2);
 void emit_jump(Assembly *code, String *label);
 
 Value *emit_push_var(Assembly *code, Value *res_info);
-
-Value *emit_push_array(Assembly *code, Value *res_info);
 
 int emit_push_register(Assembly *code, size_t idx, Type_size size);
 
@@ -272,7 +272,7 @@ void make_func_decl_symbol(Type ret_type, String *name, Vector *param);
 
 void make_local_symbol(Type, String *name, Vector *step, Value *res_info);
 
-Symbol *make_param_symbol(Type, String *name);
+Symbol *make_param_symbol(Type, String *name, Vector *step);
 
 void make_new_scope();
 
@@ -285,6 +285,8 @@ Symbol *get_top_scope();
 int in_global_scope();
 
 void yyerror(const char *fmt, ...);
+
+void convert_dimension_to_step(Symbol *s);
 
 #define YYSTYPE Analysis
 

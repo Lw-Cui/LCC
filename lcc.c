@@ -73,10 +73,11 @@ void destroy_new_scope() {
     symtab = symtab->parent;
 }
 
-Symbol *make_param_symbol(Type type, String *name) {
+Symbol *make_param_symbol(Type type, String *name, Vector *step) {
     Symbol *ptr = make_symbol();
     ptr->self_type = type;
     ptr->name = name;
+    ptr->step = step;
     return ptr;
 }
 
@@ -132,10 +133,18 @@ void emit_local_variable(Assembly *code) {
                                         str(symtab->name), real_size[symtab->self_type], -symtab->offset));
     } else {
         //array
+        int offset = 0;
         for (int i = 0; i < *(int *) at(symtab->step, 0) / real_size[symtab->self_type]; i++)
-            symtab->offset = allocate_stack(real_size[symtab->self_type]);
+            offset = allocate_stack(real_size[symtab->self_type]);
         assembly_push_back(code, sprint("\t# allocate %s %d byte(s) %d(%%rbp)",
-                                        str(symtab->name), *(int *) at(symtab->step, 0), -symtab->offset));
+                                        str(symtab->name), *(int *) at(symtab->step, 0), -offset));
+        symtab->offset = allocate_stack(real_size[QUAD_WORD]);
+        assembly_push_back(code, sprint("\tleaq   %d(%%rbp), %%%s",
+                                        -offset,
+                                        regular_reg[2][QUAD_WORD]));
+        assembly_push_back(code, sprint("\tmovq   %%%s, %d(%%rbp)",
+                                        regular_reg[2][QUAD_WORD],
+                                        -symtab->offset));
     }
     // initialization
     if (has_constant(symtab->res_info)) {
@@ -196,13 +205,13 @@ Symbol *find_name(String *name) {
 Value *emit_push_array(Assembly *code, Value *res_info) {
     int offset = allocate_stack(real_size[QUAD_WORD]);
     assembly_push_back(code, sprint("\t# push %d(%%rbp)", -offset));
-    assembly_push_back(code, sprint("\tleaq   %d(%%rbp), %%%s",
+    assembly_push_back(code, sprint("\tmovq   %d(%%rbp), %%%s",
                                     -get_stack_offset(res_info),
                                     regular_reg[0][QUAD_WORD]));
     assembly_push_back(code, sprint("\tmovq   %%%s, %d(%%rbp)",
                                     regular_reg[0][QUAD_WORD],
                                     -offset));
-    return make_array(offset, QUAD_WORD, res_info->step, 0);
+    return res_info;
 }
 
 Value *emit_push_var(Assembly *code, Value *res_info) {
@@ -216,12 +225,13 @@ Value *emit_push_var(Assembly *code, Value *res_info) {
                                     op_suffix[get_type_size(res_info)],
                                     regular_reg[0][get_type_size(res_info)],
                                     -offset));
-    if (is_address(res_info))
+    if (is_address(res_info)) {
         return make_address(offset, get_type_size(res_info));
-    else if (is_array(res_info))
+    } else if (is_array(res_info)) {
         return make_array(offset, get_type_size(res_info), res_info->step, res_info->cur_dimension);
-    else
+    } else {
         return make_stack_val(offset, get_type_size(res_info));
+    }
 }
 
 int emit_push_register(Assembly *code, size_t idx, Type_size size) {
@@ -427,6 +437,11 @@ void emit_set_func_arguments(Assembly *code, Symbol *func) {
                                           arguments_reg[i][arg->size]
             ));
             arguments_extend(al, i, arg->size, QUAD_WORD);
+        } else if (is_array(arg)) {
+            assembly_push_back(al, sprint("\tmovq   %d(%%rbp), %%%s",
+                                          -get_stack_offset(arg),
+                                          arguments_reg[i][QUAD_WORD]
+            ));
         } else if (has_stack_offset(arg)) {
             assembly_push_back(al, sprint("\tmov%c   %d(%%rbp), %%%s",
                                           op_suffix[arg->size],
@@ -444,16 +459,24 @@ void emit_get_func_arguments(Assembly *code) {
     Assembly *al = make_assembly();
     for (int i = 0; i < size(func->param); i++) {
         Symbol *arg = symbol_cast(at(func->param, i));
-        yyerror("%s", str(arg->name));
         arg->parent = symtab;
         symtab = arg;
-        arg->offset = allocate_stack(real_size[arg->self_type]);
-        assembly_push_back(al, sprint("\t# passing %s %d byte(s) %d(%%rbp)",
-                                      str(arg->name), real_size[arg->self_type], -arg->offset));
-        assembly_push_back(al, sprint("\tmov%c   %%%s, %d(%%rbp)",
-                                      op_suffix[arg->self_type],
-                                      arguments_reg[i][arg->self_type],
-                                      -arg->offset));
+        if (arg->step != NULL) {
+            arg->offset = allocate_stack(real_size[QUAD_WORD]);
+            assembly_push_back(al, sprint("\t# passing array %s %d byte(s) %d(%%rbp)",
+                                          str(arg->name), real_size[QUAD_WORD], -arg->offset));
+            assembly_push_back(al, sprint("\tmovq   %%%s, %d(%%rbp)",
+                                          arguments_reg[i][QUAD_WORD],
+                                          -arg->offset));
+        } else {
+            arg->offset = allocate_stack(real_size[arg->self_type]);
+            assembly_push_back(al, sprint("\t# passing %s %d byte(s) %d(%%rbp)",
+                                          str(arg->name), real_size[arg->self_type], -arg->offset));
+            assembly_push_back(al, sprint("\tmov%c   %%%s, %d(%%rbp)",
+                                          op_suffix[arg->self_type],
+                                          arguments_reg[i][arg->self_type],
+                                          -arg->offset));
+        }
     }
     assembly_append(code, al);
 }
@@ -469,8 +492,7 @@ int is_cur_sym_array() {
     return symtab->step != NULL;
 }
 
-void convert_dimension_to_step() {
-    Symbol *s = symtab;
+void convert_dimension_to_step(Symbol *s) {
     Vector *real_step = make_vector();
 
     add_dimension(s, 1);
@@ -487,6 +509,10 @@ void convert_dimension_to_step() {
     s->step = real_step;
 }
 
+void convert_cur_sym_dimension_to_step() {
+    convert_dimension_to_step(symtab);
+}
+
 void add_dimension(Symbol *s, int d) {
     int *value = malloc(sizeof(int));
     *value = d;
@@ -499,14 +525,18 @@ Value *pop_and_index(Assembly *code, Value *op1, Value *op2) {
     op2 = pop_and_single_op(code, op2, "mul", make_constant_val(*(int *) at(op1->step, ++op1->cur_dimension)));
     emit_pop(code, op2, 0);
     signal_extend(code, 0, op2->size, QUAD_WORD);
-    emit_pop(code, op1, 2); // array
+    assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
+                                    op_suffix[QUAD_WORD],
+                                    -get_stack_offset(op1),
+                                    regular_reg[2][QUAD_WORD]));
+    free_stack(real_size[QUAD_WORD]);
     assembly_push_back(code, sprint("\taddq   %%%s, %%%s",
                                     regular_reg[0][QUAD_WORD],
                                     regular_reg[2][QUAD_WORD]
     ));
     if (op1->cur_dimension == size(op1->step) - 1) {
         assembly_push_back(code, sprint("\t# index final res"));
-        int offset = emit_push_register(code, 2, get_type_size(op1));
+        int offset = emit_push_register(code, 2, QUAD_WORD);
         return make_address(offset, get_type_size(op1));
     } else {
         int offset = allocate_stack(real_size[QUAD_WORD]);
@@ -556,14 +586,14 @@ void pop_and_assign(Assembly *code, Value *op1, Value *op2) {
         // for index result
         // TODO: %rcx is chosen as temp register, which isn't a good strategy
         assembly_push_back(code, sprint("\tmov%c   %d(%%rbp), %%%s",
-                                        op_suffix[op1_type],
+                                        op_suffix[QUAD_WORD],
                                         -get_stack_offset(op1),
-                                        regular_reg[2][op1_type]));
+                                        regular_reg[2][QUAD_WORD]));
         free_stack(real_size[op1_type]);
         assembly_push_back(code, sprint("\tmov%c   %%%s, (%%%s)",
-                                        op_suffix[op1_type],
-                                        regular_reg[0][op1_type],
-                                        regular_reg[2][op1_type]));
+                                        op_suffix[max_type],
+                                        regular_reg[0][max_type],
+                                        regular_reg[2][QUAD_WORD]));
     } else {
         assembly_push_back(code, sprint("\tmov%c   %%%s, %d(%%rbp)",
                                         op_suffix[op1_type],

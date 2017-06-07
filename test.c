@@ -1,10 +1,8 @@
 int putchar(int);
 
-/*
 int get_array(int a[2][5], int x, int y) {
     return a[x][y];
 }
-*/
 
 int diff(char a, int b);
 
@@ -45,7 +43,7 @@ int main(int argc) {
     array[0][2] = 1;
     int k = 0;
     v1 = v3;
-    v1 = array[1][3] - array[k][k + 2];
+    v1 = get_array(array, 1, 3)  - array[k][k + 2];
     if (v4 == v2) {
         return v4 + 3;              // 7
     } else {
